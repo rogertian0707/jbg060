@@ -8,7 +8,10 @@ import pandas as pd
 import seaborn as sns
 
 path = "C:/Users/Hermii/Desktop/Data Challenge 3/repo/jbg060/code/"
+#csv you get from temp.py
 comb = pd.read_csv(path +"both_pumps.csv")
+
+#Specify only "flow data" and 1 pump
 flow = comb[(comb["measurementType"] == "Debietmeting.Q") & (comb["City.PumpType"] == "GBS_DB.RG8150")]
 flow["TimeStamp"] = pd.to_datetime(flow["TimeStamp"])
 
