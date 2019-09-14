@@ -8,8 +8,8 @@ This is a temporary script file.
 import pandas as pd
 import glob
 
-path = "C:/Users/Hermii/Desktop/Data Challenge 3/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/RG8150/RG8150"
-path2 = "C:/Users/Hermii/Desktop/Data Challenge 3/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/RG8170/RG8170"
+path = "C:/Users/maren/OneDrive/Dokumente/Muffin/Data Challenge 3/jbg060/data/sewer_data/data_pump/RG8150/RG8150"
+path2 = "C:/Users/maren/OneDrive/Dokumente/Muffin/Data Challenge 3/jbg060/data/sewer_data/data_pump/RG8170/RG8170"
 
 all_files = glob.glob(path + "/*.csv")
 

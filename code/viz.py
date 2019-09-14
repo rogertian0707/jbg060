@@ -7,7 +7,7 @@ Created on Thu Sep 12 00:07:02 2019
 import pandas as pd
 import seaborn as sns
 
-path = "C:/Users/Hermii/Desktop/Data Challenge 3/repo/jbg060/code/"
+path = "C:/Users/maren/OneDrive/Dokumente/Muffin/Data Challenge 3/jbg060/code/"
 #csv you get from temp.py
 comb = pd.read_csv(path +"both_pumps.csv")
 
