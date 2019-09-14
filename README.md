@@ -2,6 +2,7 @@
 ## Group 3
 
 ### File structure
+
 ├── code
 │   └── unused
 └── data
@@ -11,15 +12,20 @@
     │   │   ├── RG8150
     │   │   └── RG8170
     │   ├── rain_grid_prediction
-    │   │   └── knmi.harmonie_2018-01-01_2019-08-29
     │   └── rain_timeseries
     ├── sewer_data_db
     │   ├── data_pump_flow
     │   │   ├── 003_Helfheuvelweg
     │   │   ├── 004_Engelerschans
-    │   │   └── 005_De_Rompert
+    │   │   ├── 005_De_Rompert
+    │   │   ├── 1210FIT201_99
+    │   │   ├── 1210FIT301_99
+    │   │   ├── 1210FIT401_94
+    │   │   └── 1210FIT501_99
     │   ├── data_pump_level
     │   └── data_wwtp_flow
+    │       ├── RG1876_flow
+    │       └── RG1882_flow
     ├── sewer_model
     │   ├── aa-en-maas_sewer_lyr
     │   └── aa-en-maas_sewer_shp
