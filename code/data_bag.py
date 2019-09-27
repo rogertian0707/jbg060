@@ -83,8 +83,8 @@ def path_bag(flow, level, station_names):
 
 def streets_rain(station_names, path_linkinfo, path_rain):
     
-    link = pd.read_csv(path_linkinfo+
-                   "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.csv",
+    link = pd.read_excel(path_linkinfo+
+                   "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.xlsx",
                    header = 9)
     
     rain = pd.concat([pd.read_csv(file, header = 2) for file in glob.glob(path_rain+"/*.*")], ignore_index = True)
@@ -266,3 +266,12 @@ def hourly_conversion(path, mean=bool):
     df = df.reset_index()
     return df
     
+rain_df = streets_rain(station_names, path_linkinfo, path_rain)
+hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
+
+
+
+flow_bokhoven = hourly_conversion(path4, mean = False)
+flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[1], "datumBeginMeting", "Begin")
+
+flow_bokhoven.to_csv('../data/Bokhoven_rain.csv')
