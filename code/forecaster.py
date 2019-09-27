@@ -77,12 +77,12 @@ rain_df = streets_rain(station_names, path_linkinfo, path_rain)
 
 # List of dfs with each station's hourly rain classification in order of station_names list,
 # with n = 15. (n=15 means rain_-15_class is "0" if no rain prior 15 hours and "1" otherwise)
-hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
+hourly_rain_classified = binary_rain(station_names, rain_df, n=1)
 
 # Level and flow of Haarsteeg per hour (shapes match here, have to check if they do on other files,
 # otherwise bound dates like in line 86)
-level_haarsteeg = hourly_conversion(path5)
-flow_haarsteeg = hourly_conversion(path6)
+level_haarsteeg = hourly_conversion(path5, mean = True)
+flow_haarsteeg = hourly_conversion(path6, mean = False)
 
 # Returns merged dataframe with the timestamps present in both dfs
 flow_haarsteeg  = bound_dates(flow_haarsteeg, hourly_rain_classified[0], "datumBeginMeting", "Begin")
@@ -98,6 +98,7 @@ def binary_holidays(country_holidays, dates):
             holiday.append(0)
     return holiday
     
+
 
 def feature_setup(df_flow, df_level, country_holidays):
     

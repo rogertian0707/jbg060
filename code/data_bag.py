@@ -149,10 +149,25 @@ def labeler2(rain):
     Classifies an hour as dry if there hasn't been rain previous n days days
     """
     if rain == 0:
-        return "0"
+        return 0
     else:
-        return "1"
+        return 1
     
+def last_n_cumsum(n, name, df):
+    B = []
+    i =0
+    n_lim = n
+    station = list(df[name])
+    while i<len(station):
+        if i<n_lim:
+            B.append(sum(station[0:i]))
+            if i>=n_lim and i < len(station) -n_lim:
+                B.append(sum(station[i-n_lim:i]))
+                if i>= len(station) -n_lim:
+                    B.append(sum(station[i:]))
+                i=i+1
+    return B
+
 def binary_rain(station_names, df, n):
     
     binary_rain_df = []
@@ -162,7 +177,7 @@ def binary_rain(station_names, df, n):
     
     for i in station_names:
         df_relevant = df[[i, "Begin"]]
-        df_relevant["cumsum_previous_15"] = df[i].rolling(min_periods=1, window=n).sum()
+        df_relevant["cumsum_previous_15"] = last_n_cumsum(n, i, df)
         df_relevant["rain_-15_class"] = df_relevant.apply(lambda x: labeler2(x["cumsum_previous_15"]), axis=1)
         binary_rain_df.append(df_relevant)
     return binary_rain_df
@@ -235,15 +250,20 @@ def bound_dates(df1, df2, df1_datecol, df2_datecol):
     df1.drop(columns=[df2_datecol])
     return df1
 
-def hourly_conversion(path):
+def hourly_conversion(path, mean=bool):
     """
     Converts data to hourly format
     """
+    
     df = pd.concat([pd.read_csv(file) for file in glob.glob(path+"/*.*")], ignore_index = True)
     df = df[["datumBeginMeting", "datumEindeMeting", "hstWaarde"]].sort_values(by='datumBeginMeting')
     df["datumBeginMeting"] = pd.to_datetime(df["datumBeginMeting"])
     df["datumEindeMeting"] = pd.to_datetime(df["datumEindeMeting"])
-    df = df.set_index("datumBeginMeting", drop = False).resample("60Min").sum()
+    if mean == True:
+        df = df.set_index("datumBeginMeting", drop = False).resample("60Min").mean()
+    else:
+        df = df.set_index("datumBeginMeting", drop = False).resample("60Min").sum()
+   
     df = df.reset_index()
     return df
     
