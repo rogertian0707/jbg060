@@ -12,6 +12,9 @@ import holidays
 from sklearn.ensemble import RandomForestRegressor
 from numpy import mean
 from data_bag import streets_rain, binary_rain, hourly_conversion, bound_dates
+import random
+from math import sqrt
+
 
 
 
@@ -77,7 +80,7 @@ rain_df = streets_rain(station_names, path_linkinfo, path_rain)
 
 # List of dfs with each station's hourly rain classification in order of station_names list,
 # with n = 15. (n=15 means rain_-15_class is "0" if no rain prior 15 hours and "1" otherwise)
-hourly_rain_classified = binary_rain(station_names, rain_df, n=1)
+hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
 
 # Level and flow of Haarsteeg per hour (shapes match here, have to check if they do on other files,
 # otherwise bound dates like in line 86)
@@ -128,14 +131,43 @@ def feature_setup(df_flow, df_level, country_holidays):
     #Not actual features, but columns by which we will filter prediction procedures
     #(Be sure to remove them before fitting)
     features["rain_N_ago"] = rained_n_class
+    features["dates"] = dates
     
+
     return features
 
 df_features = feature_setup(flow_haarsteeg, level_haarsteeg, nl_holidays)
+
+
+def mse(d):
+    """Mean Squared Error"""
+    return mean(d * d) 
+
+def random_forest(features):
+    features = features[df_features['rain_N_ago'] == 0]
     
+    all_days = set(features["dates"].dt.date)
+    test_days = random.sample(all_days, 120)
+    training_days = [x for x in all_days if x not in test_days]
     
+    training = features[features["dates"].dt.date.isin(training_days)]
+    training_X = training.drop(columns = ["flow", "dates"])
+    training_Y = training["flow"]
     
+    testing = features[features["dates"].dt.date.isin(test_days)]
+    testing_X = testing.drop(columns = ["flow", "dates"])
+    testing_Y = testing["flow"]
     
+    rf = RandomForestRegressor(n_estimators = 1000)
+    rf.fit(training_X, training_Y)
+    prediction = rf.predict(testing_X)
+    error = testing_Y - prediction
+    return print(rf.feature_importances_, sqrt(mse(error)))
+    
+
+random_forest(df_features)
+
+
     
 # =============================================================================
 
@@ -164,14 +196,5 @@ df_features = feature_setup(flow_haarsteeg, level_haarsteeg, nl_holidays)
 # test1 = features[features["datumBeginMeting"] > pd.Timestamp(2019, 1, 1)]
 # test = test1[["hour", "day","dayofweek", "level"]]
 # 
-# rf = RandomForestRegressor(n_estimators = 1000)
-# rf.fit(train, train1["hstWaarde"])
-# prediction = rf.predict(test)
-# error = test1["hstWaarde"] - prediction
-# def mse(d):
-#     """Mean Squared Error"""
-#     return mean(d * d)
 # 
-# mse = mse(error)
-# print(mse)
 # =============================================================================

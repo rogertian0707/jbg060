@@ -148,7 +148,8 @@ def labeler2(rain):
     """
     Classifies an hour as dry if there hasn't been rain previous n days days
     """
-    if rain == 0:
+    threshold = 0.05*(5/8)
+    if rain >= 0 and rain <= threshold:
         return 0
     else:
         return 1
@@ -161,11 +162,9 @@ def last_n_cumsum(n, name, df):
     while i<len(station):
         if i<n_lim:
             B.append(sum(station[0:i]))
-            if i>=n_lim and i < len(station) -n_lim:
-                B.append(sum(station[i-n_lim:i]))
-                if i>= len(station) -n_lim:
-                    B.append(sum(station[i:]))
-                i=i+1
+        if i>=n_lim:
+            B.append(sum(station[i-n_lim:i]))
+        i=i+1
     return B
 
 def binary_rain(station_names, df, n):
