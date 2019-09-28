@@ -83,8 +83,8 @@ def path_bag(flow, level, station_names):
 
 def streets_rain(station_names, path_linkinfo, path_rain):
     
-    link = pd.read_excel(path_linkinfo+
-                   "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.xlsx",
+    link = pd.read_csv(path_linkinfo+
+                   "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.csv",
                    header = 9)
     
     rain = pd.concat([pd.read_csv(file, header = 2) for file in glob.glob(path_rain+"/*.*")], ignore_index = True)
@@ -148,7 +148,7 @@ def labeler2(rain):
     """
     Classifies an hour as dry if there hasn't been rain previous n days days
     """
-    threshold = 0.05*(5/8)
+    threshold = 0.05
     if rain >= 0 and rain <= threshold:
         return 0
     else:
@@ -161,9 +161,9 @@ def last_n_cumsum(n, name, df):
     station = list(df[name])
     while i<len(station):
         if i<n_lim:
-            B.append(sum(station[0:i]))
+            B.append(sum(station[0:i+1]))
         if i>=n_lim:
-            B.append(sum(station[i-n_lim:i]))
+            B.append(sum(station[i-n_lim:i+1]))
         i=i+1
     return B
 
@@ -265,13 +265,69 @@ def hourly_conversion(path, mean=bool):
    
     df = df.reset_index()
     return df
+
+class RainEvent(object):
+    #TAKE CARE: some measurements are every 1 hour instead of every 5 minutes
+    #THerefore, check largest difference between start and end
+    """"""
+    duration = 0
+    #type_rain = ""
+    n_measurements = 0
+    total_mm = 0
+    amounts_mm = []
+    rain_ID = 0
+    indexes = []
+    begin = 0
+    end = 0
+    #time_bf = 0 # Time before another rain event happens
     
+    def __init__(self, begin, end, duration, n_measurements, total_mm, amounts_mm, rain_ID,
+                 indexes):
+        
+        self.begin = begin
+        self.end = end
+        self.duration = duration
+        #self.type_rain = type_rain
+        self.n_measurements = n_measurements
+        self.total_mm = total_mm
+        self.amounts_mm = amounts_mm
+        self.rain_ID = rain_ID
+        self.indexes = indexes
+        #self.time_bf = 0
+
+        
+        
+        
+    def get_df(self, flow_or_level_df):
+        df = flow_or_level_df[flow_or_level_df["Begin"].dt.isin(self.dates)]
+        df["Rain amounts"] = self.amounts_mm
+        df["Begin"] = self.begin
+        df["End"] = self.end
+        
+def event_parsing(df_events):
+    events = []
+    
+    inst = set(df_events["rain_event_ID"])
+    ids = [i for i in inst if i != "None"]
+    
+    for event_id in ids:
+        relevant_df = df_events[df_events["rain_event_ID"] == event_id]
+        begin = relevant_df["Begin"].iloc[0]
+        end = relevant_df["End"].iloc[-1]
+        duration = end - begin
+        n_measurements = len(relevant_df)
+        total_mm = sum(relevant_df.iloc[:, 0])
+        amounts_mm = list(relevant_df.iloc[:, 0])
+        indexes = list(relevant_df.index)
+        
+        events.append(RainEvent(begin, end, duration, n_measurements,
+                                total_mm, amounts_mm, event_id, indexes))
+    return events
+
 rain_df = streets_rain(station_names, path_linkinfo, path_rain)
-hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
+events_df = rain_events(station_names, rain_df)
+df = pd.concat([pd.read_csv(file) for file in glob.glob(path4+"/*.*")], ignore_index = True)
+#events for haarsteeg
+events = event_parsing(events_df[0])
 
-
-
-flow_bokhoven = hourly_conversion(path4, mean = False)
-flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[1], "datumBeginMeting", "Begin")
-
-flow_bokhoven.to_csv('../data/Bokhoven_rain.csv')
+    

@@ -14,6 +14,9 @@ from numpy import mean
 from data_bag import streets_rain, binary_rain, hourly_conversion, bound_dates
 import random
 from math import sqrt
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import GridSearchCV
+import numpy as np
 
 
 
@@ -82,13 +85,16 @@ rain_df = streets_rain(station_names, path_linkinfo, path_rain)
 # with n = 15. (n=15 means rain_-15_class is "0" if no rain prior 15 hours and "1" otherwise)
 hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
 
-# Level and flow of Haarsteeg per hour (shapes match here, have to check if they do on other files,
-# otherwise bound dates like in line 86)
-level_haarsteeg = hourly_conversion(path5, mean = True)
-flow_haarsteeg = hourly_conversion(path6, mean = False)
+# Level and flow of Bokhoven per hour (shapes match here, have to check if they do on other files,
+# otherwise bound dates like in line 86) 
+
+#Changed to Bokhoven, since there is another pump behind Haarsteeg at which if there is rain,
+# it will influence the flow by a lot
+level_bokhoven = hourly_conversion(path3, mean = True)
+flow_bokhoven = hourly_conversion(path4, mean = False)
 
 # Returns merged dataframe with the timestamps present in both dfs
-flow_haarsteeg  = bound_dates(flow_haarsteeg, hourly_rain_classified[0], "datumBeginMeting", "Begin")
+flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[0], "datumBeginMeting", "Begin")
 
 nl_holidays = holidays.CountryHoliday('NL')
 
@@ -136,18 +142,36 @@ def feature_setup(df_flow, df_level, country_holidays):
 
     return features
 
-df_features = feature_setup(flow_haarsteeg, level_haarsteeg, nl_holidays)
+df_features = feature_setup(flow_bokhoven, level_bokhoven, nl_holidays).dropna()
 
 
 def mse(d):
     """Mean Squared Error"""
     return mean(d * d) 
 
-def random_forest(features):
-    features = features[df_features['rain_N_ago'] == 0]
+def evaluate(model, test_features, test_labels):
+    predictions = model.predict(test_features)
+    errors = abs(predictions - test_labels)
+    mape = 100 * np.mean(errors / test_labels)
+    accuracy = 100 - mape
+    print('Model Performance')
+    print('Average Error: {:0.4f} degrees.'.format(np.mean(errors)))
+    print('Accuracy = {:0.2f}%.'.format(accuracy))
+    print("RMSE = {}".format(sqrt(mse)))
+    
+    return accuracy
+
+def test_train(features, dry = bool):
+    """
+    Spits out test and training data;
+    """
+    if dry == True:
+        features = features[df_features['rain_N_ago'] == 0]
+    else: 
+        features = features[df_features['rain_N_ago'] == 1]
     
     all_days = set(features["dates"].dt.date)
-    test_days = random.sample(all_days, 120)
+    test_days = random.sample(all_days, 60)
     training_days = [x for x in all_days if x not in test_days]
     
     training = features[features["dates"].dt.date.isin(training_days)]
@@ -158,11 +182,115 @@ def random_forest(features):
     testing_X = testing.drop(columns = ["flow", "dates"])
     testing_Y = testing["flow"]
     
-    rf = RandomForestRegressor(n_estimators = 1000)
+    return training_X, training_Y, testing_X, testing_Y
+
+
+def param_tuning_RS(features):
+    """
+    Random Search for parameter tuning (Needs generalization to other algorithms)
+    """
+    #Random search into Grid Search
+    
+    #RANDOM SEARCH
+    # Number of trees in random forest
+    n_estimators = [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)]
+    # Number of features to consider at every split
+    max_features = ['auto', 'sqrt']
+    # Maximum number of levels in tree
+    max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
+    max_depth.append(None)
+    # Minimum number of samples required to split a node
+    min_samples_split = [2, 5, 10]
+    # Minimum number of samples required at each leaf node
+    min_samples_leaf = [1, 2, 4]
+    # Method of selecting samples for training each tree
+    bootstrap = [True, False]
+    # Create the random grid
+    
+    random_grid = {'n_estimators': n_estimators,
+                   'max_features': max_features,
+                   'max_depth': max_depth,
+                   'min_samples_split': min_samples_split,
+                   'min_samples_leaf': min_samples_leaf,
+                   'bootstrap': bootstrap}
+    
+    training_X, training_Y, testing_X, testing_Y = test_train(features)
+    
+    rf = RandomForestRegressor()
+    rf_random = RandomizedSearchCV(estimator = rf, param_distributions = random_grid,
+                                   n_iter = 100, cv = 3, verbose=2, random_state=42,
+                                   n_jobs = -1)
+    
+    rf_random.fit(training_X, training_Y)
+    
+    print(rf_random.best_params_)
+    
+    base_model = RandomForestRegressor(n_estimators = 10, random_state = 42)
+    base_model.fit(training_X, training_Y)
+    base_accuracy = evaluate(base_model, testing_X, testing_Y)
+    
+    best_random = rf_random.best_estimator_
+    random_accuracy = evaluate(best_random, testing_X, testing_Y)
+    
+    print('Improvement of {:0.2f}%.'.format(100 * (random_accuracy - base_accuracy) / base_accuracy))
+    
+    return  training_X, training_Y, testing_X, testing_Y 
+    
+    
+#param_tuning_RS(df_features)
+#features = param_tuning_RS(df_features)
+
+def param_tuning_GS(features, base_accuracy):
+    
+    training_X, training_Y, testing_X, testing_Y  = features
+    
+    """
+    Grid Search that should be manually tuned (the param_grid manually changed
+    according to Random Search
+    """
+    #GRID SEARCH
+    
+    #Based on RS
+    #Add external function to spit features
+    # and add the base accuracy
+    param_grid = {
+    'bootstrap': [True],
+    'max_depth': [80, 90, 100, 110],
+    'max_features': [2, 3],
+    'min_samples_leaf': [3, 4, 5],
+    'min_samples_split': [8, 10, 12],
+    'n_estimators': [100, 200, 300, 1000]
+    }
+    # Create a based model
+    rf = RandomForestRegressor()
+    # Instantiate the grid search model
+    grid_search = GridSearchCV(estimator = rf, param_grid = param_grid, 
+                              cv = 3, n_jobs = -1, verbose = 2)
+    
+    grid_search.fit(train_features, train_labels)
+    print(grid_search.best_params_)
+    
+    best_grid = grid_search.best_estimator_
+    grid_accuracy = evaluate(best_grid, test_features, test_labels)
+    
+    print('Improvement of {:0.2f}%.'.format(100 * (grid_accuracy - base_accuracy) / base_accuracy))
+    
+#training_X, training_Y, testing_X, testing_Y = test_train(df_features)
+
+def random_forest(features):
+    
+    training_X, training_Y, testing_X, testing_Y = test_train(features)
+    
+    rf = RandomForestRegressor(n_estimators = 400, min_samples_split=5,
+                               min_samples_leaf = 1,
+                               max_features = "sqrt", max_depth = 100, bootstrap = True)
+    #try max_features = auto
     rf.fit(training_X, training_Y)
-    prediction = rf.predict(testing_X)
-    error = testing_Y - prediction
-    return print(rf.feature_importances_, sqrt(mse(error)))
+    evaluate(rf, testing_X, testing_Y)
+    for i, k in zip(testing_X.columns, rf.feature_importances_):
+        print("Feature: {} ; Importance: {}".format(i, k))
+    
+    
     
 
 random_forest(df_features)
