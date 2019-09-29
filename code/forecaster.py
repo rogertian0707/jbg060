@@ -349,7 +349,7 @@ def random_forest(features, folds):
     for i, k in zip(df_train.drop(["flow", "dates"], axis = 1).columns, rf.feature_importances_):
         print("Feature: {} ; Importance: {}".format(i, k))
         
-    return features
+    return features_copy
         
     
 df = random_forest(df_features, 10)
