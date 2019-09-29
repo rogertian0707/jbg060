@@ -5,6 +5,8 @@ Created on Thu Sep 26 14:08:39 2019
 @author: Hermii
 """
 #%%
+
+## SHOULD ADD ONlY HOLIDAY DAYS AS ONE-HOT ENCODED FEATURES IN DAY OF YEAR FEATURE
 import pandas as pd
 import glob
 import holidays
@@ -13,13 +15,10 @@ from sklearn.ensemble import RandomForestRegressor
 from numpy import mean
 from data_bag import streets_rain, binary_rain, hourly_conversion, bound_dates
 import random
-from math import sqrt
+from math import sqrt, ceil
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
 import numpy as np
-
-
-
 
 # PATHS
 
@@ -74,6 +73,7 @@ path16 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_f
 path_linkinfo = "../data/waterschap-aa-en-maas_sewage_2019/sewer_model"
 path_rain = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/rain_timeseries"
 
+#Order of stations names is recurrent in the output dataframes here
 station_names = ["Haarsteeg", "Bokhoven", "Hertogenbosch (Helftheuvelweg)",
                  "Hertogenbosch (Rompert)", "Hertogenbosch (Oude Engelenseweg)",
                  "Hertogenbosch (Maasport)"]
@@ -94,7 +94,7 @@ level_bokhoven = hourly_conversion(path3, mean = True)
 flow_bokhoven = hourly_conversion(path4, mean = False)
 
 # Returns merged dataframe with the timestamps present in both dfs
-flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[0], "datumBeginMeting", "Begin")
+flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[1], "datumBeginMeting", "Begin")
 
 nl_holidays = holidays.CountryHoliday('NL')
 
@@ -114,17 +114,17 @@ def feature_setup(df_flow, df_level, country_holidays):
     dates = df_flow["Begin"]
     flow = df_flow["hstWaarde"]
     rained_n_class = df_flow["rain_-15_class"]
-    rain = df_flow["Haarsteeg"]
+    rain = df_flow["Bokhoven"]
     #cumsum_previous_n = df_flow["cumsum_previous_15"]
     level = df_level["hstWaarde"]
     holidays = binary_holidays(nl_holidays, dates)
     
     features = pd.DataFrame()
     
-    features["day_ofthe_month"] = dates.dt.day
-    features["hour"] = dates.dt.hour
-    features["day_ofthe_year"] = dates.dt.dayofyear
-    features["day_ofthe_week"] = dates.dt.dayofweek
+    features["day_ofthe_month"] = dates.dt.day.astype(str)
+    features["hour"] = dates.dt.hour.astype(str)
+    features["day_ofthe_year"] = dates.dt.dayofyear.astype(str)
+    features["day_ofthe_week"] = dates.dt.dayofweek.astype(str)
     features["holiday"] = holidays
     features["flow"] = flow
     
@@ -134,14 +134,22 @@ def feature_setup(df_flow, df_level, country_holidays):
     # Add a feature of level at previous timestamps before or during this hour (5 minute stamps)
     features["level"] = level
     
-    #Not actual features, but columns by which we will filter prediction procedures
+    # Not actual features, but columns by which we will filter prediction procedures
     #(Be sure to remove them before fitting)
     features["rain_N_ago"] = rained_n_class
     features["dates"] = dates
     
+    # One-Hot encoding the categorical variables
+    features = pd.get_dummies(features, columns = ["day_ofthe_month",
+                                                    "hour",
+                                                    "day_ofthe_year",
+                                                    "day_ofthe_week",
+                                                    "holiday"])
+
 
     return features
 
+## check which ones are missing from .dropna()
 df_features = feature_setup(flow_bokhoven, level_bokhoven, nl_holidays).dropna()
 
 
@@ -160,30 +168,6 @@ def evaluate(model, test_features, test_labels):
     print("RMSE = {}".format(sqrt(mse)))
     
     return accuracy
-
-def test_train(features, dry = bool):
-    """
-    Spits out test and training data;
-    """
-    if dry == True:
-        features = features[df_features['rain_N_ago'] == 0]
-    else: 
-        features = features[df_features['rain_N_ago'] == 1]
-    
-    all_days = set(features["dates"].dt.date)
-    test_days = random.sample(all_days, 60)
-    training_days = [x for x in all_days if x not in test_days]
-    
-    training = features[features["dates"].dt.date.isin(training_days)]
-    training_X = training.drop(columns = ["flow", "dates"])
-    training_Y = training["flow"]
-    
-    testing = features[features["dates"].dt.date.isin(test_days)]
-    testing_X = testing.drop(columns = ["flow", "dates"])
-    testing_Y = testing["flow"]
-    
-    return training_X, training_Y, testing_X, testing_Y
-
 
 def param_tuning_RS(features):
     """
@@ -236,9 +220,6 @@ def param_tuning_RS(features):
     
     return  training_X, training_Y, testing_X, testing_Y 
     
-    
-#param_tuning_RS(df_features)
-#features = param_tuning_RS(df_features)
 
 def param_tuning_GS(features, base_accuracy):
     
@@ -274,26 +255,104 @@ def param_tuning_GS(features, base_accuracy):
     grid_accuracy = evaluate(best_grid, test_features, test_labels)
     
     print('Improvement of {:0.2f}%.'.format(100 * (grid_accuracy - base_accuracy) / base_accuracy))
-    
-#training_X, training_Y, testing_X, testing_Y = test_train(df_features)
+   
 
-def random_forest(features):
+def random_forest(features, folds):
+    """
+    Random Forest algorithm (the model below could easily be replaced)
+    with k-fold manually implemented stratified CV in order to balance out
+    and have proportional number of dry and wet days in each partition
+    """
     
-    training_X, training_Y, testing_X, testing_Y = test_train(features)
     
-    rf = RandomForestRegressor(n_estimators = 400, min_samples_split=5,
-                               min_samples_leaf = 1,
-                               max_features = "sqrt", max_depth = 100, bootstrap = True)
-    #try max_features = auto
-    rf.fit(training_X, training_Y)
-    evaluate(rf, testing_X, testing_Y)
-    for i, k in zip(testing_X.columns, rf.feature_importances_):
+    ### CV
+    dry_indexes = list(features[features['rain_N_ago'] == 0].index)
+    wet_indexes = list(features[features['rain_N_ago'] == 1].index)
+    
+    dry_n = len(dry_indexes)
+    wet_n = len(wet_indexes)
+    
+    #Instruments from which 
+    instr_dry = dry_indexes.copy()
+    instr_wet = wet_indexes.copy()
+    
+    train_folds = []
+    test_folds = []
+    
+    for i in range(0, folds):
+        
+        #if statements for the lengths at the last folds
+        if len(instr_dry) < (dry_n/folds) or len(instr_wet) < (wet_n/folds):
+            fold_i_test_dry = instr_dry
+            fold_i_test_wet = instr_wet
+            
+            fold_i_test_dry.extend(fold_i_test_wet)
+            test_folds.append(fold_i_test_dry)
+            
+            fold_i_train_dry = list(set(dry_indexes) - set(fold_i_test_dry))
+            fold_i_train_wet = list(set(wet_indexes) - set(fold_i_test_wet))
+            
+            fold_i_train_dry.extend(fold_i_train_wet)
+            train_folds.append(fold_i_train_dry)
+            
+        else:
+            fold_i_test_dry = random.sample(instr_dry, math.ceil(dry_n/folds))
+            instr_dry = list(set(instr_dry) - set(fold_i_test_dry))
+            
+            fold_i_test_wet = random.sample(instr_wet, math.ceil(wet_n/folds))
+            instr_wet = list(set(instr_wet) - set(fold_i_test_wet))
+            
+            fold_i_test_dry.extend(fold_i_test_wet)
+            test_folds.append(fold_i_test_dry)
+            
+            fold_i_train_dry = list(set(dry_indexes) - set(fold_i_test_dry))
+            fold_i_train_wet = list(set(wet_indexes) - set(fold_i_test_wet))
+            
+            fold_i_train_dry.extend(fold_i_train_wet)
+            train_folds.append(fold_i_train_dry)
+    
+    # Storing all MSEs
+    all_folds_mse = []
+    
+    # Initializing empty column to lay the predictions back after the k-fold
+    features_copy = features.copy()
+    features_copy["predictions"] = 0
+            
+    for i in range(0, folds):
+        df_train = features.loc[train_folds[i],:]
+        df_test = features.loc[test_folds[i],:]
+            
+        train_Y = np.array(df_train["flow"])
+        train_X = np.array(df_train.drop(["flow", "dates"], axis=1))
+            
+        test_Y = np.array(df_test["flow"])
+        test_X = np.array(df_test.drop(["flow", "dates"], axis =1))
+            
+        # Here add the best parameters from RandomSearch and GridSearch
+        rf = RandomForestRegressor(n_estimators = 400, min_samples_split=5,
+                                       min_samples_leaf = 1,
+                                       max_features = "sqrt", max_depth = 100, bootstrap = True)
+        rf.fit(train_X, train_Y)
+        #NEED to add a more elaborate evaluate function here
+        test_predictions = rf.predict(test_X)
+        error = test_Y - test_predictions
+        mse_k = mse(error)
+        rmse = math.sqrt(mse_k)
+        all_folds_mse.append(mse_k)
+        
+        #Store feature importances to see the most important features with rf.feature_importances_
+        
+        # Adding predictions back to the features
+        features_copy.loc[test_folds[i], "predictions"] = test_predictions
+        
+    #Feature importance for one fold
+    for i, k in zip(df_train.drop(["flow", "dates"], axis = 1).columns, rf.feature_importances_):
         print("Feature: {} ; Importance: {}".format(i, k))
+        
+    return features
+        
     
-    
-    
-
-random_forest(df_features)
+df = random_forest(df_features, 10)
 
 
     
@@ -325,4 +384,30 @@ random_forest(df_features)
 # test = test1[["hour", "day","dayofweek", "level"]]
 # 
 # 
+# =============================================================================
+
+
+# =============================================================================
+# def test_train(features, dry = bool):
+#     """
+#     Spits out test and training data;
+#     """
+#     if dry == True:
+#         features = features[df_features['rain_N_ago'] == 0]
+#     else: 
+#         features = features[df_features['rain_N_ago'] == 1]
+#     
+#     all_days = set(features["dates"].dt.date)
+#     test_days = random.sample(all_days, 60)
+#     training_days = [x for x in all_days if x not in test_days]
+#     
+#     training = features[features["dates"].dt.date.isin(training_days)]
+#     training_X = training.drop(columns = ["flow", "dates"])
+#     training_Y = training["flow"]
+#     
+#     testing = features[features["dates"].dt.date.isin(test_days)]
+#     testing_X = testing.drop(columns = ["flow", "dates"])
+#     testing_Y = testing["flow"]
+#     
+#     return training_X, training_Y, testing_X, testing_Y
 # =============================================================================

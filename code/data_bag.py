@@ -299,6 +299,8 @@ class RainEvent(object):
         
         
     def get_df(self, flow_or_level_df):
+        #Getting the event in a dataframe format with corresponding hours of flow
+        #Linked to rain
         df = flow_or_level_df[flow_or_level_df["Begin"].dt.isin(self.dates)]
         df["Rain amounts"] = self.amounts_mm
         df["Begin"] = self.begin
@@ -324,10 +326,10 @@ def event_parsing(df_events):
                                 total_mm, amounts_mm, event_id, indexes))
     return events
 
-rain_df = streets_rain(station_names, path_linkinfo, path_rain)
-events_df = rain_events(station_names, rain_df)
-df = pd.concat([pd.read_csv(file) for file in glob.glob(path4+"/*.*")], ignore_index = True)
+#rain_df = streets_rain(station_names, path_linkinfo, path_rain)
+#events_df = rain_events(station_names, rain_df)
+#df = pd.concat([pd.read_csv(file) for file in glob.glob(path4+"/*.*")], ignore_index = True)
 #events for haarsteeg
-events = event_parsing(events_df[0])
+#events = event_parsing(events_df[0])
 
     
