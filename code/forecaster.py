@@ -15,7 +15,7 @@ from sklearn.ensemble import RandomForestRegressor
 from numpy import mean
 from data_bag import streets_rain, binary_rain, hourly_conversion, bound_dates
 import random
-from math import sqrt, ceil
+import math
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
 import numpy as np
@@ -355,7 +355,7 @@ def random_forest(features, folds):
 df = random_forest(df_features, 10)
 
 
-    
+df.to_csv('../data/modeloutput.csv')   
 # =============================================================================
 
 # features["day"] = features["datumBeginMeting"].dt.day
