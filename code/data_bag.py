@@ -17,55 +17,55 @@ pd.options.mode.chained_assignment = None
 # PATHS
 
 #Den Bosch flow
-path = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/RG8150/RG8150/"
-path1 = "../data/waterschap-aa-en-maas_sewage_2019_db_pumps/sewer_data_db/data_wwtp_flow/RG1876_flow/"
-path2 = "../data/waterschap-aa-en-maas_sewage_2019_db_pumps/sewer_data_db/data_wwtp_flow/RG1882_flow/"
+path = "../data/sewer_data/data_pump/RG8150/RG8150/"
+path1 = "../data/sewer_data_db/data_wwtp_flow/RG1876_flow/"
+path2 = "../data/sewer_data_db/data_wwtp_flow/RG1882_flow/"
 
 
 #Bokhoven level
-path3 = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/RG8180_L0/"
+path3 = "../data/sewer_data/data_pump/RG8180_L0/"
 #Bokhoven flow
-path4 = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/RG8180_Q0/"
+path4 = "../data/sewer_data/data_pump/RG8180_Q0/"
 
 
 #Haarsteeg level
-path5 = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/rg8170_N99/"
+path5 = "../data/sewer_data/data_pump/rg8170_N99/"
 #Haarsteeg flow
-path6 = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/rg8170_99/"
+path6 = "../data/sewer_data/data_pump/rg8170_99/"
 
 
 #Helftheuvelweg level column 003 Helftheuvelweg *.csv
-path7 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path7 = "../data/sewer_data_db/data_pump_level/"
 #Helftheuvelweg flow 
-path8 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT301_99/"
+path8 = "../data/sewer_data_db/data_pump_flow/1210FIT301_99/"
 
 
 #Engelerschans level column “004 Engelerschans” *.csv
-path9 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path9 = "../data/sewer_data_db/data_pump_level/"
 #Engelerschans flow + Haarsteeg + Bokhoven, therefore substract for only Engeleschans
-path10 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT201_99/"
+path10 = "../data/sewer_data_db/data_pump_flow/1210FIT201_99/"
 
 
 #Maaspoort level Column: “006 Maaspoort” *.csv 
-path11 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path11 = "../data/sewer_data_db/data_pump_level/"
 #Maasport flow + Rompert
-path12= "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT501_99/"
+path12= "../data/sewer_data_db/data_pump_flow/1210FIT501_99/"
 
 
 #Oude Engelenseweg level Column: “002 Oude Engelenseweg” *.csv
-path13 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path13 = "../data/sewer_data_db/data_pump_level/"
 #Oude Engelenseweg flow
-path14 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT401_94/"
+path14 = "../data/sewer_data_db/data_pump_flow/1210FIT401_94/"
 
 
 #De Rompert level Column: “005 de Rompert” *.csv
-path15 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path15 = "../data/sewer_data_db/data_pump_level/"
 #De Rompert flow + Maasport
-path16 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT501_99/"
+path16 = "../data/sewer_data_db/data_pump_flow/1210FIT501_99/"
 
 #Location linkage
-path_linkinfo = "../data/waterschap-aa-en-maas_sewage_2019/sewer_model"
-path_rain = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/rain_timeseries"
+path_linkinfo = "../data/sewer_model"
+path_rain = "../data/sewer_data/rain_timeseries"
 
 #Missing Engelerschans (in map also)
 station_names = ["Haarsteeg", "Bokhoven", "Hertogenbosch (Helftheuvelweg)",
@@ -83,8 +83,8 @@ def path_bag(flow, level, station_names):
 
 def streets_rain(station_names, path_linkinfo, path_rain):
     
-    link = pd.read_excel(path_linkinfo+
-                   "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.xlsx",
+    link = pd.read_csv(path_linkinfo+
+                   "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.csv",
                    header = 9)
     
     rain = pd.concat([pd.read_csv(file, header = 2) for file in glob.glob(path_rain+"/*.*")], ignore_index = True)
@@ -249,15 +249,18 @@ def bound_dates(df1, df2, df1_datecol, df2_datecol):
     df1.drop(columns=[df2_datecol])
     return df1
 
-def hourly_conversion(path, mean=bool):
+def hourly_conversion(path, mean=bool, need_concat=bool):
     """
     Converts data to hourly format
     """
+    if need_concat == True:
+       df = pd.concat([pd.read_csv(file) for file in glob.glob(path+"/*.*")], ignore_index = True)
+    else:
+        df = pd.read_csv(path)
     
-    df = pd.concat([pd.read_csv(file) for file in glob.glob(path+"/*.*")], ignore_index = True)
-    df = df[["datumBeginMeting", "datumEindeMeting", "hstWaarde"]].sort_values(by='datumBeginMeting')
+    df = df[["datumBeginMeting", "hstWaarde"]].sort_values(by='datumBeginMeting') #, "datumEindeMeting"
     df["datumBeginMeting"] = pd.to_datetime(df["datumBeginMeting"])
-    df["datumEindeMeting"] = pd.to_datetime(df["datumEindeMeting"])
+    #df["datumEindeMeting"] = pd.to_datetime(df["datumEindeMeting"])
     if mean == True:
         df = df.set_index("datumBeginMeting", drop = False).resample("60Min").mean()
     else:

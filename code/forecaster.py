@@ -15,7 +15,7 @@ from sklearn.ensemble import RandomForestRegressor
 from numpy import mean
 from data_bag import streets_rain, binary_rain, hourly_conversion, bound_dates
 import random
-import math
+from math import sqrt, ceil
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
 import numpy as np
@@ -23,55 +23,55 @@ import numpy as np
 # PATHS
 
 #Den Bosch flow
-path = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/RG8150/RG8150/"
-path1 = "../data/waterschap-aa-en-maas_sewage_2019_db_pumps/sewer_data_db/data_wwtp_flow/RG1876_flow/"
-path2 = "../data/waterschap-aa-en-maas_sewage_2019_db_pumps/sewer_data_db/data_wwtp_flow/RG1882_flow/"
+path = "../data/sewer_data/data_pump/RG8150/RG8150/"
+path1 = "../data/sewer_data_db/data_wwtp_flow/RG1876_flow/"
+path2 = "../data/sewer_data_db/data_wwtp_flow/RG1882_flow/"
 
 
 #Bokhoven level
-path3 = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/RG8180_L0/"
+path3 = "../data/sewer_data/data_pump/RG8180_L0/"
 #Bokhoven flow
-path4 = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/RG8180_Q0/"
+path4 = "../data/sewer_data/data_pump/RG8180_Q0/"
 
 
 #Haarsteeg level
-path5 = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/rg8170_N99/"
+path5 = "../data/sewer_data/data_pump/rg8170_N99/"
 #Haarsteeg flow
-path6 = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/data_pump/rg8170_99/"
+path6 = "../data/sewer_data/data_pump/rg8170_99/"
 
 
 #Helftheuvelweg level column 003 Helftheuvelweg *.csv
-path7 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path7 = "../data/sewer_data_db/data_pump_level/"
 #Helftheuvelweg flow 
-path8 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT301_99/"
+path8 = "../data/sewer_data_db/data_pump_flow/1210FIT301_99/"
 
 
 #Engelerschans level column “004 Engelerschans” *.csv
-path9 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path9 = "../data/sewer_data_db/data_pump_level/"
 #Engelerschans flow + Haarsteeg + Bokhoven, therefore substract for only Engeleschans
-path10 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT201_99/"
+path10 = "../data/sewer_data_db/data_pump_flow/1210FIT201_99/"
 
 
 #Maaspoort level Column: “006 Maaspoort” *.csv 
-path11 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path11 = "../data/sewer_data_db/data_pump_level/"
 #Maasport flow + Rompert
-path12= "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT501_99/"
+path12= "../data/sewer_data_db/data_pump_flow/1210FIT501_99/"
 
 
 #Oude Engelenseweg level Column: “002 Oude Engelenseweg” *.csv
-path13 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path13 = "../data/sewer_data_db/data_pump_level/"
 #Oude Engelenseweg flow
-path14 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT401_94/"
+path14 = "../data/sewer_data_db/data_pump_flow/1210FIT401_94/"
 
 
 #De Rompert level Column: “005 de Rompert” *.csv
-path15 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_level/"
+path15 = "../data/sewer_data_db/data_pump_level/"
 #De Rompert flow + Maasport
-path16 = "../data/waterschap-aa-en-maas_sewage_2019_db/sewer_data_db/data_pump_flow/1210FIT501_99/"
+path16 = "../data/sewer_data_db/data_pump_flow/1210FIT501_99/"
 
 #Location linkage
-path_linkinfo = "../data/waterschap-aa-en-maas_sewage_2019/sewer_model"
-path_rain = "../data/waterschap-aa-en-maas_sewage_2019/sewer_data/rain_timeseries"
+path_linkinfo = "../data/sewer_model"
+path_rain = "../data/sewer_data/rain_timeseries"
 
 #Order of stations names is recurrent in the output dataframes here
 station_names = ["Haarsteeg", "Bokhoven", "Hertogenbosch (Helftheuvelweg)",
@@ -79,29 +79,29 @@ station_names = ["Haarsteeg", "Bokhoven", "Hertogenbosch (Helftheuvelweg)",
                  "Hertogenbosch (Maasport)"]
 
 # Rain in each station df
-rain_df = streets_rain(station_names, path_linkinfo, path_rain)
+#rain_df = streets_rain(station_names, path_linkinfo, path_rain)
 
 # List of dfs with each station's hourly rain classification in order of station_names list,
 # with n = 15. (n=15 means rain_-15_class is "0" if no rain prior 15 hours and "1" otherwise)
-hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
+#hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
 
 # Level and flow of Bokhoven per hour (shapes match here, have to check if they do on other files,
 # otherwise bound dates like in line 86) 
 
 #Changed to Bokhoven, since there is another pump behind Haarsteeg at which if there is rain,
 # it will influence the flow by a lot
-level_bokhoven = hourly_conversion(path3, mean = True)
-flow_bokhoven = hourly_conversion(path4, mean = False)
+#level_bokhoven = hourly_conversion(path3, mean = True)
+#flow_bokhoven = hourly_conversion(path4, mean = False)
 
 # Returns merged dataframe with the timestamps present in both dfs
-flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[1], "datumBeginMeting", "Begin")
+#flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[1], "datumBeginMeting", "Begin")
 
-nl_holidays = holidays.CountryHoliday('NL')
+#nl_holidays = holidays.CountryHoliday('NL')
 
 def binary_holidays(country_holidays, dates):
     holiday = []
     for i in dates:
-        if i in nl_holidays:
+        if i in country_holidays:
             holiday.append(1)
         else:
             holiday.append(0)
@@ -109,15 +109,15 @@ def binary_holidays(country_holidays, dates):
     
 
 
-def feature_setup(df_flow, df_level, country_holidays):
+def feature_setup(df_flow, df_level, country_holidays, name):
     
     dates = df_flow["Begin"]
     flow = df_flow["hstWaarde"]
     rained_n_class = df_flow["rain_-15_class"]
-    rain = df_flow["Bokhoven"]
+    rain = df_flow[name]
     #cumsum_previous_n = df_flow["cumsum_previous_15"]
     level = df_level["hstWaarde"]
-    holidays = binary_holidays(nl_holidays, dates)
+    holidays_1 = binary_holidays(country_holidays, dates)
     
     features = pd.DataFrame()
     
@@ -125,7 +125,7 @@ def feature_setup(df_flow, df_level, country_holidays):
     features["hour"] = dates.dt.hour.astype(str)
     features["day_ofthe_year"] = dates.dt.dayofyear.astype(str)
     features["day_ofthe_week"] = dates.dt.dayofweek.astype(str)
-    features["holiday"] = holidays
+    features["holiday"] = holidays_1
     features["flow"] = flow
     
     # Add feature of amount of rain some timestamps before or during this hour (5 minute stamps)
@@ -150,22 +150,22 @@ def feature_setup(df_flow, df_level, country_holidays):
     return features
 
 ## check which ones are missing from .dropna()
-df_features = feature_setup(flow_bokhoven, level_bokhoven, nl_holidays).dropna()
+#df_features = feature_setup(flow_bokhoven, level_bokhoven, nl_holidays).dropna()
 
 
 def mse(d):
     """Mean Squared Error"""
     return mean(d * d) 
 
-def evaluate(model, test_features, test_labels):
-    predictions = model.predict(test_features)
+def evaluate(model, predictions, test_labels):
+    #predictions = model.predict(test_features)
     errors = abs(predictions - test_labels)
     mape = 100 * np.mean(errors / test_labels)
     accuracy = 100 - mape
     print('Model Performance')
     print('Average Error: {:0.4f} degrees.'.format(np.mean(errors)))
     print('Accuracy = {:0.2f}%.'.format(accuracy))
-    print("RMSE = {}".format(sqrt(mse)))
+    print("RMSE = {}".format(sqrt(mse(errors))))
     
     return accuracy
 
@@ -296,10 +296,10 @@ def random_forest(features, folds):
             train_folds.append(fold_i_train_dry)
             
         else:
-            fold_i_test_dry = random.sample(instr_dry, math.ceil(dry_n/folds))
+            fold_i_test_dry = random.sample(instr_dry, ceil(dry_n/folds))
             instr_dry = list(set(instr_dry) - set(fold_i_test_dry))
             
-            fold_i_test_wet = random.sample(instr_wet, math.ceil(wet_n/folds))
+            fold_i_test_wet = random.sample(instr_wet, ceil(wet_n/folds))
             instr_wet = list(set(instr_wet) - set(fold_i_test_wet))
             
             fold_i_test_dry.extend(fold_i_test_wet)
@@ -337,8 +337,10 @@ def random_forest(features, folds):
         test_predictions = rf.predict(test_X)
         error = test_Y - test_predictions
         mse_k = mse(error)
-        rmse = math.sqrt(mse_k)
+        rmse = sqrt(mse_k)
         all_folds_mse.append(mse_k)
+        
+        evaluate(rf, test_predictions, test_Y)
         
         #Store feature importances to see the most important features with rf.feature_importances_
         
@@ -352,10 +354,10 @@ def random_forest(features, folds):
     return features_copy
         
     
-df = random_forest(df_features, 10)
+#df = random_forest(df_features, 10)
 
 
-df.to_csv('../data/modeloutput.csv')   
+    
 # =============================================================================
 
 # features["day"] = features["datumBeginMeting"].dt.day
