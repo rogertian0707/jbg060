@@ -74,33 +74,33 @@ print("Running saving flow files")
 # Comment this out if you haven't run it yet
 
 # =============================================================================
-# df = pd.concat([pd.read_csv(file, delimiter = ";", dtype={'001: Poeldonk Neerslagmeting (mm)': str}) for file in glob.glob(path7+"/*.csv")], ignore_index = True)
+#df = pd.concat([pd.read_csv(file, delimiter = ";", dtype={'001: Poeldonk Neerslagmeting (mm)': str}) for file in glob.glob(path7+"/*.csv")], ignore_index = True)
 # #df['hstWaarde'] = df['hstWaarde'].str.replace(',', '').astype(float)
-# print("Concatinated")
+#print("Concatinated")
 # # # #LEVELS
-# df["datumBeginMeting"] = df["Datum"] + " " + df["Tijd"]
-# df["datumBeginMeting"] = pd.to_datetime(df["datumBeginMeting"])
-# print("Date columnb saved")
+#df["datumBeginMeting"] = df["Datum"] + " " + df["Tijd"]
+#df["datumBeginMeting"] = pd.to_datetime(df["datumBeginMeting"])
+#print("Date columnb saved")
 # #   
-# df_Helftheuvelweg_level = df[["datumBeginMeting", "003: Helftheuvelweg Niveau (cm)"]].rename(columns={"003: Helftheuvelweg Niveau (cm)": "hstWaarde"})
-# df_Helftheuvelweg_level["hstWaarde"] = df_Helftheuvelweg_level['hstWaarde'].str.replace(',', '').astype(float)
-# df_Helftheuvelweg_level.to_csv(path7 + "Hertogenbosch (Helftheuvelweg).csv")
+#df_Helftheuvelweg_level = df[["datumBeginMeting", "003: Helftheuvelweg Niveau (cm)"]].rename(columns={"003: Helftheuvelweg Niveau (cm)": "hstWaarde"})
+#df_Helftheuvelweg_level["hstWaarde"] = df_Helftheuvelweg_level['hstWaarde'].str.replace(',', '').astype(float)
+#df_Helftheuvelweg_level.to_csv(path7 + "Hertogenbosch (Helftheuvelweg).csv")
 # 
 # 
 # #  
-# df_De_Rompert_level = df[["datumBeginMeting", '005: De Rompert Niveau (cm)']].rename(columns = {'005: De Rompert Niveau (cm)':"hstWaarde"})
-# df_De_Rompert_level["hstWaarde"] = df_De_Rompert_level["hstWaarde"].str.replace(',', '').astype(float)
-# df_De_Rompert_level.to_csv(path9 + "Hertogenbosch (Rompert).csv")
+#df_De_Rompert_level = df[["datumBeginMeting", '005: De Rompert Niveau (cm)']].rename(columns = {'005: De Rompert Niveau (cm)':"hstWaarde"})
+#df_De_Rompert_level["hstWaarde"] = df_De_Rompert_level["hstWaarde"].str.replace(',', '').astype(float)
+#df_De_Rompert_level.to_csv(path9 + "Hertogenbosch (Rompert).csv")
 # 
 # #  
-# df_Oude_Engelenseweg_level = df[["datumBeginMeting", '002: Oude Engelenseweg Niveau actueel (1&2)(cm)']].rename(columns = {'002: Oude Engelenseweg Niveau actueel (1&2)(cm)':"hstWaarde"})
-# df_Oude_Engelenseweg_level["hstWaarde"] = df_Oude_Engelenseweg_level['hstWaarde'].str.replace(',', '').astype(float)
-# df_Oude_Engelenseweg_level.to_csv(path13 + "Hertogenbosch (Oude Engelenseweg).csv")
-# 
-# #   
-# df_Maasport_level = df[["datumBeginMeting", '006: Maaspoort Niveau actueel (1&2)(cm)']].rename(columns = {'006: Maaspoort Niveau actueel (1&2)(cm)':"hstWaarde"})
-# df_Maasport_level["hstWaarde"] = df_Maasport_level['hstWaarde'].str.replace(',', '').astype(float)
-# df_Maasport_level.to_csv(path13 + "Hertogenbosch (Maasport).csv")
+#df_Oude_Engelenseweg_level = df[["datumBeginMeting", '002: Oude Engelenseweg Niveau actueel (1&2)(cm)']].rename(columns = {'002: Oude Engelenseweg Niveau actueel (1&2)(cm)':"hstWaarde"})
+#df_Oude_Engelenseweg_level["hstWaarde"] = df_Oude_Engelenseweg_level['hstWaarde'].str.replace(',', '').astype(float)
+#df_Oude_Engelenseweg_level.to_csv(path13 + "Hertogenbosch (Oude Engelenseweg).csv")
+
+ #   
+#df_Maasport_level = df[["datumBeginMeting", '006: Maaspoort Niveau actueel (1&2)(cm)']].rename(columns = {'006: Maaspoort Niveau actueel (1&2)(cm)':"hstWaarde"})
+#df_Maasport_level["hstWaarde"] = df_Maasport_level['hstWaarde'].str.replace(',', '').astype(float)
+#df_Maasport_level.to_csv(path13 + "Hertogenbosch (Maasport).csv")
 # =============================================================================
 
 
@@ -371,14 +371,15 @@ def run_forecast_vis(station_names, path5, path6, path3,
     flows.extend([flow_haarsteeg, flow_bokhoven, flow_helftheuvelweg, flow_derompert, flow_oudeengelenseweg, flow_maasport])
     
     print("done storing flows and levels in run_forecast_vis function")
-    
-    for k, name in enumerate(station_names):
-        df = bound_dates(flows[k], hourly_rain_classified[k], "datumBeginMeting", "Begin")
-        df_features = feature_setup(df, levels[k], nl_holidays, name).dropna()
-        df = random_forest(df_features, 10)
-        print("Starting viz")
-        DoAllErrorVis(df, name)
-        print("Done with "+name)
+    return flows
+#    for k, name in enumerate(station_names):
+#        df = bound_dates(flows[k], hourly_rain_classified[k], "datumBeginMeting", "Begin")
+#        df_features = feature_setup(df, levels[k], nl_holidays, name).dropna()
+#        df = random_forest(df_features, 10)
+#        print("Starting viz")
+#        DoAllErrorVis(df, name)
+#        print("Done with "+name)
+        
         
 run_forecast_vis(station_names, path5, path6, path3, path4, path7, path8, path9,
                  path16, path13, path14, path12, path_linkinfo, path_rain, nl_holidays)
