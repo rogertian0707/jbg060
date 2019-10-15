@@ -109,7 +109,7 @@ print("Running saving flow files")
 
 print("Done writing files for flow")
 
-station_names = ["Haarsteeg", "Bokhoven", "Hertogenbosch (Helftheuvelweg)",
+station_names = ["Bokhoven", "Hertogenbosch (Helftheuvelweg)",
                  "Hertogenbosch (Rompert)", "Hertogenbosch (Oude Engelenseweg)",
                  "Hertogenbosch (Maasport)"]
 
@@ -345,8 +345,8 @@ def run_forecast_vis(station_names, path5, path6, path3,
     levels = []
     flows = []
     
-    level_haarsteeg = hourly_conversion(path5, mean = True, need_concat = True)
-    flow_haarsteeg = hourly_conversion(path6, mean = False, need_concat = True)
+    #level_haarsteeg = hourly_conversion(path5, mean = True, need_concat = True)
+    #flow_haarsteeg = hourly_conversion(path6, mean = False, need_concat = True)
     
     
     level_bokhoven = hourly_conversion(path3, mean = True, need_concat = True)
@@ -367,22 +367,28 @@ def run_forecast_vis(station_names, path5, path6, path3,
     rain_df = streets_rain(station_names, path_linkinfo, path_rain)
     hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
     
-    levels.extend([level_haarsteeg, level_bokhoven, level_helftheuvelweg, level_derompert, level_oudeengelenseweg, level_maasport])
-    flows.extend([flow_haarsteeg, flow_bokhoven, flow_helftheuvelweg, flow_derompert, flow_oudeengelenseweg, flow_maasport])
+    levels.extend([level_bokhoven, level_helftheuvelweg, level_derompert, level_oudeengelenseweg, level_maasport])
+    flows.extend([flow_bokhoven, flow_helftheuvelweg, flow_derompert, flow_oudeengelenseweg, flow_maasport])
     
     print("done storing flows and levels in run_forecast_vis function")
-    return flows
-#    for k, name in enumerate(station_names):
-#        df = bound_dates(flows[k], hourly_rain_classified[k], "datumBeginMeting", "Begin")
-#        df_features = feature_setup(df, levels[k], nl_holidays, name).dropna()
+    
+    dfs = []
+    for k, name in enumerate(station_names):
+        df = bound_dates(flows[k], hourly_rain_classified[k], "datumBeginMeting", "Begin")
+        df_features = feature_setup(df, levels[k], nl_holidays, name).dropna()
+        dfs.append(df_features)
+        
+    return dfs
 #        df = random_forest(df_features, 10)
 #        print("Starting viz")
 #        DoAllErrorVis(df, name)
 #        print("Done with "+name)
         
         
-run_forecast_vis(station_names, path5, path6, path3, path4, path7, path8, path9,
+dfs = run_forecast_vis(station_names, path5, path6, path3, path4, path7, path8, path9,
                  path16, path13, path14, path12, path_linkinfo, path_rain, nl_holidays)
         
-        
-    
+print(dfs[0].head())      
+for i, name in enumerate(station_names):
+    df = AddColumnsPred(dfs[i])
+    df.to_csv(f"../data/{name}_model_data.csv")

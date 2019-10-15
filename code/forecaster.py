@@ -140,11 +140,11 @@ def feature_setup(df_flow, df_level, country_holidays, name):
     features["dates"] = dates
     
     # One-Hot encoding the categorical variables
-    features = pd.get_dummies(features, columns = ["day_ofthe_month",
-                                                    "hour",
-                                                    "day_ofthe_year",
-                                                    "day_ofthe_week",
-                                                    "holiday"])
+    #features = pd.get_dummies(features, columns = ["day_ofthe_month",
+#                                                    "hour",
+#                                                    "day_ofthe_year",
+#                                                    "day_ofthe_week",
+#                                                    "holiday"])
 
 
     return features
