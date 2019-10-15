@@ -83,8 +83,8 @@ def path_bag(flow, level, station_names):
 
 def streets_rain(station_names, path_linkinfo, path_rain):
     
-    link = pd.read_excel(path_linkinfo+
-                   "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.xlsx",
+    link = pd.read_csv(path_linkinfo+
+                   "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.csv",
                    header = 9)
     
     rain = pd.concat([pd.read_csv(file, header = 2) for file in glob.glob(path_rain+"/*.*")], ignore_index = True)
@@ -268,6 +268,33 @@ def hourly_conversion(path, mean=bool, need_concat=bool):
    
     df = df.reset_index()
     return df
+
+def get_levels_flows():
+    levels = []
+    flows = []
+        
+    level_haarsteeg = hourly_conversion(path5, mean = True, need_concat = True)
+    flow_haarsteeg = hourly_conversion(path6, mean = False, need_concat = True)
+        
+        
+    level_bokhoven = hourly_conversion(path3, mean = True, need_concat = True)
+    flow_bokhoven = hourly_conversion(path4, mean = False, need_concat = True)
+    print("Problem?")
+    level_helftheuvelweg = hourly_conversion(path7 + "Hertogenbosch (Helftheuvelweg).csv", mean = True, need_concat = False)
+    flow_helftheuvelweg = hourly_conversion(path8, mean = False, need_concat = True)
+    print("No")
+    level_derompert = hourly_conversion(path9 + "Hertogenbosch (Rompert).csv", mean = True)
+    flow_derompert = hourly_conversion(path16, mean = False, need_concat = True)
+    
+    level_oudeengelenseweg = hourly_conversion(path13 + "Hertogenbosch (Oude Engelenseweg).csv", mean = True, need_concat = False)
+    flow_oudeengelenseweg = hourly_conversion(path14, mean = False, need_concat = True)
+    
+    level_maasport = hourly_conversion(path13 + "Hertogenbosch (Maasport).csv", mean = True, need_concat = False)
+    flow_maasport = hourly_conversion(path12, mean = False, need_concat = True)
+        
+    levels.extend([level_haarsteeg, level_bokhoven, level_helftheuvelweg, level_derompert, level_oudeengelenseweg, level_maasport])
+    flows.extend([flow_haarsteeg, flow_bokhoven, flow_helftheuvelweg, flow_derompert, flow_oudeengelenseweg, flow_maasport])
+    return levels, flows
 
 class RainEvent(object):
     #TAKE CARE: some measurements are every 1 hour instead of every 5 minutes

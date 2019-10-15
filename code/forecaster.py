@@ -13,12 +13,14 @@ import holidays
 #import datetime
 from sklearn.ensemble import RandomForestRegressor
 from numpy import mean
-from data_bag import streets_rain, binary_rain, hourly_conversion, bound_dates
+from data_bag import streets_rain, binary_rain, hourly_conversion, bound_dates, get_levels_flows
 import random
 from math import sqrt, ceil
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
 import numpy as np
+import matplotlib.pyplot as plt
+import os
 
 # PATHS
 
@@ -78,23 +80,57 @@ station_names = ["Haarsteeg", "Bokhoven", "Hertogenbosch (Helftheuvelweg)",
                  "Hertogenbosch (Rompert)", "Hertogenbosch (Oude Engelenseweg)",
                  "Hertogenbosch (Maasport)"]
 
+nl_holidays = holidays.CountryHoliday('NL')
+
 # Rain in each station df
-#rain_df = streets_rain(station_names, path_linkinfo, path_rain)
+rain_df = streets_rain(station_names, path_linkinfo, path_rain)
 
 # List of dfs with each station's hourly rain classification in order of station_names list,
 # with n = 15. (n=15 means rain_-15_class is "0" if no rain prior 15 hours and "1" otherwise)
-#hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
+hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
 
 # Level and flow of Bokhoven per hour (shapes match here, have to check if they do on other files,
 # otherwise bound dates like in line 86) 
 
 #Changed to Bokhoven, since there is another pump behind Haarsteeg at which if there is rain,
 # it will influence the flow by a lot
-#level_bokhoven = hourly_conversion(path3, mean = True)
-#flow_bokhoven = hourly_conversion(path4, mean = False)
+level_bokhoven = hourly_conversion(path3, mean = True)
+flow_bokhoven = hourly_conversion(path4, mean = False)
 
 # Returns merged dataframe with the timestamps present in both dfs
-#flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[1], "datumBeginMeting", "Begin")
+flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[1], "datumBeginMeting", "Begin")
+
+
+
+def PlotSelectedMonth(df, pump_name, condition, month, year):
+    
+    df = df[df['year'] == year]
+    df = df[df['month_name'] == month]
+    
+    
+    fig, ax = plt.subplots(figsize=(20, 6))
+    ax.grid()
+    ax.plot(df['Begin'], df['flow']);
+    ax.set_ylabel("Flow (m³/h)", fontsize=15)
+    ax.set_xlabel("Date", fontsize=15);
+    ax.set_title(pump_name + ': Flow in ' + month + ' ' + str(year) + ' on ' + condition + ' days', fontsize=18);
+    ax.tick_params(axis='both', which='major', labelsize=14);
+    
+    ax2 = ax.twinx()
+    color = 'tab:red'
+    ax2.plot(df["Begin"], df['rain_hour'], color=color);
+    ax2.set_ylabel('Amount of rain per day', color=color);
+    ax2.tick_params(colors=color)
+    
+    if os.path.isdir("../graphs/preprocess/" + pump_name + "/") == False:
+        os.mkdir("../graphs/preprocess/" + pump_name + "/")
+    
+    fig.savefig("../graphs/preprocess/" + pump_name + "/" + condition + " " + month + "per_day.png")
+    
+    
+
+        
+    
 
 #nl_holidays = holidays.CountryHoliday('NL')
 
@@ -109,7 +145,25 @@ def binary_holidays(country_holidays, dates):
     
 
 
-def feature_setup(df_flow, df_level, country_holidays, name):
+def feature_setup(df_flow, df_level, country_holidays, name, dummies=bool, n_pastlevel, n_pastrain):
+    """
+    Function that returns the features before inputting them into a model, e.g
+    
+    Description of parameters:
+    
+    df_flow: Expect dataframe with the flows
+    df_level: Expect dataframe with level
+    country_holidays: Expects a holidays object for the holiday feature
+    name: Expect the name of the station
+    dummies: Boolean whether you want the categorical features below to be one-hot-encoded
+    n_pastlevel: natural number indicating how many lags of level to include
+    n_pastrain: natural number indicating how many lags of rain to include
+    
+    """
+    
+    # Last n lags instrument
+    level_lags = [i for i in range(-n_pastlevel, 0)]
+    rain_lags = [i for i in range(-n_pastrain, 0)]
     
     dates = df_flow["Begin"]
     flow = df_flow["hstWaarde"]
@@ -127,6 +181,18 @@ def feature_setup(df_flow, df_level, country_holidays, name):
     features["day_ofthe_week"] = dates.dt.dayofweek.astype(str)
     features["holiday"] = holidays_1
     features["flow"] = flow
+    features["month"] = dates.dt.month.astype(str)
+    features["year"] = dates.dt.year.astype(str)
+    features['month_name'] = dates.dt.month_name()
+    features["Begin"] = dates
+    
+    # Adding a feature for each level lag.
+    for i in level_lags:     
+        features["level_lag_" + i] = level.shift(i)
+        
+    # Adding a feature for each rain lag.
+    for i in rain_lags:
+        features["rain_lag_" + i] = rain.shift(i)
     
     # Add feature of amount of rain some timestamps before or during this hour (5 minute stamps)
     features["rain_hour"] = rain
@@ -139,12 +205,17 @@ def feature_setup(df_flow, df_level, country_holidays, name):
     features["rain_N_ago"] = rained_n_class
     features["dates"] = dates
     
+     
+    
     # One-Hot encoding the categorical variables
-    #features = pd.get_dummies(features, columns = ["day_ofthe_month",
-#                                                    "hour",
-#                                                    "day_ofthe_year",
-#                                                    "day_ofthe_week",
-#                                                    "holiday"])
+    if dummies == True:
+        
+        features = pd.get_dummies(features, columns = ["day_ofthe_month",
+                                                        "hour",
+                                                        "day_ofthe_year",
+                                                        "day_ofthe_week",
+                                                        "holiday",
+                                                        "month"])
 
 
     return features
@@ -351,12 +422,24 @@ def random_forest(features, folds):
     for i, k in zip(df_train.drop(["flow", "dates"], axis = 1).columns, rf.feature_importances_):
         print("Feature: {} ; Importance: {}".format(i, k))
         
-    return features_copy
+    return features_copy.to_csv("predictions.csv")
         
     
 #df = random_forest(df_features, 10)
 
+levels, flows = get_levels_flows()
 
+
+months18 = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+            'September', 'October', 'November', 'December']
+
+
+
+for month in months18:
+    for i, name in enumerate(station_names):
+        station_data = bound_dates(flows[i], hourly_rain_classified[i], "datumBeginMeting", "Begin")
+        station_data = feature_setup(station_data, levels[i], nl_holidays, name, dummies=False)
+        PlotSelectedMonth(station_data, name, (str(i)+"all"),month , 2018)
     
 # =============================================================================
 

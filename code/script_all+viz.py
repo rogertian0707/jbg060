@@ -12,6 +12,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
+import seaborn as sns
+import math
+
+path_viz = "../graphs/all_script"
 
 #Den Bosch flow
 path = "../data/sewer_data/data_pump/RG8150/RG8150/"
@@ -74,42 +78,52 @@ print("Running saving flow files")
 # Comment this out if you haven't run it yet
 
 # =============================================================================
-#df = pd.concat([pd.read_csv(file, delimiter = ";", dtype={'001: Poeldonk Neerslagmeting (mm)': str}) for file in glob.glob(path7+"/*.csv")], ignore_index = True)
+# df = pd.concat([pd.read_csv(file, delimiter = ";", dtype={'001: Poeldonk Neerslagmeting (mm)': str}) for file in glob.glob(path7+"/*.csv")], ignore_index = True)
 # #df['hstWaarde'] = df['hstWaarde'].str.replace(',', '').astype(float)
-#print("Concatinated")
+# print("Concatinated")
 # # # #LEVELS
-#df["datumBeginMeting"] = df["Datum"] + " " + df["Tijd"]
-#df["datumBeginMeting"] = pd.to_datetime(df["datumBeginMeting"])
-#print("Date columnb saved")
+# df["datumBeginMeting"] = df["Datum"] + " " + df["Tijd"]
+# df["datumBeginMeting"] = pd.to_datetime(df["datumBeginMeting"])
+# print("Date columnb saved")
 # #   
-#df_Helftheuvelweg_level = df[["datumBeginMeting", "003: Helftheuvelweg Niveau (cm)"]].rename(columns={"003: Helftheuvelweg Niveau (cm)": "hstWaarde"})
-#df_Helftheuvelweg_level["hstWaarde"] = df_Helftheuvelweg_level['hstWaarde'].str.replace(',', '').astype(float)
-#df_Helftheuvelweg_level.to_csv(path7 + "Hertogenbosch (Helftheuvelweg).csv")
+# df_Helftheuvelweg_level = df[["datumBeginMeting", "003: Helftheuvelweg Niveau (cm)"]].rename(columns={"003: Helftheuvelweg Niveau (cm)": "hstWaarde"})
+# df_Helftheuvelweg_level["hstWaarde"] = df_Helftheuvelweg_level['hstWaarde'].str.replace(',', '').astype(float)
+# df_Helftheuvelweg_level.to_csv(path7 + "Hertogenbosch (Helftheuvelweg).csv")
 # 
 # 
 # #  
-#df_De_Rompert_level = df[["datumBeginMeting", '005: De Rompert Niveau (cm)']].rename(columns = {'005: De Rompert Niveau (cm)':"hstWaarde"})
-#df_De_Rompert_level["hstWaarde"] = df_De_Rompert_level["hstWaarde"].str.replace(',', '').astype(float)
-#df_De_Rompert_level.to_csv(path9 + "Hertogenbosch (Rompert).csv")
+# df_De_Rompert_level = df[["datumBeginMeting", '005: De Rompert Niveau (cm)']].rename(columns = {'005: De Rompert Niveau (cm)':"hstWaarde"})
+# df_De_Rompert_level["hstWaarde"] = df_De_Rompert_level["hstWaarde"].str.replace(',', '').astype(float)
+# df_De_Rompert_level.to_csv(path9 + "Hertogenbosch (Rompert).csv")
 # 
 # #  
-#df_Oude_Engelenseweg_level = df[["datumBeginMeting", '002: Oude Engelenseweg Niveau actueel (1&2)(cm)']].rename(columns = {'002: Oude Engelenseweg Niveau actueel (1&2)(cm)':"hstWaarde"})
-#df_Oude_Engelenseweg_level["hstWaarde"] = df_Oude_Engelenseweg_level['hstWaarde'].str.replace(',', '').astype(float)
-#df_Oude_Engelenseweg_level.to_csv(path13 + "Hertogenbosch (Oude Engelenseweg).csv")
-
- #   
-#df_Maasport_level = df[["datumBeginMeting", '006: Maaspoort Niveau actueel (1&2)(cm)']].rename(columns = {'006: Maaspoort Niveau actueel (1&2)(cm)':"hstWaarde"})
-#df_Maasport_level["hstWaarde"] = df_Maasport_level['hstWaarde'].str.replace(',', '').astype(float)
-#df_Maasport_level.to_csv(path13 + "Hertogenbosch (Maasport).csv")
+# df_Oude_Engelenseweg_level = df[["datumBeginMeting", '002: Oude Engelenseweg Niveau actueel (1&2)(cm)']].rename(columns = {'002: Oude Engelenseweg Niveau actueel (1&2)(cm)':"hstWaarde"})
+# df_Oude_Engelenseweg_level["hstWaarde"] = df_Oude_Engelenseweg_level['hstWaarde'].str.replace(',', '').astype(float)
+# df_Oude_Engelenseweg_level.to_csv(path13 + "Hertogenbosch (Oude Engelenseweg).csv")
+# 
+# #   
+# df_Maasport_level = df[["datumBeginMeting", '006: Maaspoort Niveau actueel (1&2)(cm)']].rename(columns = {'006: Maaspoort Niveau actueel (1&2)(cm)':"hstWaarde"})
+# df_Maasport_level["hstWaarde"] = df_Maasport_level['hstWaarde'].str.replace(',', '').astype(float)
+# df_Maasport_level.to_csv(path13 + "Hertogenbosch (Maasport).csv")
 # =============================================================================
 
 
 # =============================================================================
 # =============================================================================
+
+
+# =============================================================================
+# We would also consider the risks of a Leave-One-Out Cross Validation (as well as predicting
+#    every data point with the whole rest of either dry data with only features for 
+#    hour of the day, day of the week and day of the month or wet data with the course 
+#    of month and rain measurements more, which are probably not that high since we do not 
+#    have the data over more than two years.
+# =============================================================================
+
 
 print("Done writing files for flow")
 
-station_names = ["Bokhoven", "Hertogenbosch (Helftheuvelweg)",
+station_names = ["Haarsteeg", "Bokhoven", "Hertogenbosch (Helftheuvelweg)",
                  "Hertogenbosch (Rompert)", "Hertogenbosch (Oude Engelenseweg)",
                  "Hertogenbosch (Maasport)"]
 
@@ -129,6 +143,7 @@ def AddColumnsPred(df):
     df['Month'] = df['datetime'].dt.month_name()
     df['Day'] = df['datetime'].dt.day
     df['DayofYear'] = df['datetime'].dt.dayofyear
+    
     return df
 
 
@@ -203,43 +218,45 @@ def DoAllErrorVis(df, pump_name ):
     rainy = RainyPred(pred_df)
     
     # do all visualizations for dry time predictions
-    MSEperHour(dry, pump_name, 'dry')
-    MSEperMonth(dry, pump_name, 'dry')
-    MSEperDay(dry, pump_name, 'dry')
-    MSEoverYear(dry, pump_name, 'dry')
-    SeasonalError(dry, pump_name, 'dry')
+    RMSEperHour(dry, pump_name, 'all')
+    RMSEperMonth(dry, pump_name, 'all')
+    RMSEperDay(dry, pump_name, 'all')
+    RMSEoverYear(dry, pump_name, 'all')
+    SeasonalError(dry, pump_name, 'all')
+    ErrorHist(dry, pump_name, "all")
     
-    MSEperHour(rainy, pump_name, 'wet')
-    MSEperMonth(rainy, pump_name, 'wet')
-    MSEperDay(rainy, pump_name, 'wet')
-    MSEoverYear(rainy, pump_name, 'wet')
-    SeasonalError(rainy, pump_name, 'wet')
+    RMSEperHour(rainy, pump_name, 'all')
+    RMSEperMonth(rainy, pump_name, 'all')
+    RMSEperDay(rainy, pump_name, "all")
+    RMSEoverYear(rainy, pump_name, 'all')
+    SeasonalError(rainy, pump_name, 'all')
+    ErrorHist(rainy, pump_name, "all")
     
-def MSEperHour(df, pump_name, condition):
+def RMSEperHour(df, pump_name, condition):
     
     # overall mse
-    mse = df['sq_error'].sum() / len(df['sq_error'])
+    rmse = np.sqrt(df['sq_error'].sum() / len(df['sq_error']))
     
     # group data by hour to obtain the MSE per each hour (as add all squared errors and then take the mean)
     hour_group = df.groupby('Hour')[['sq_error']].mean()
 
     fig, ax = plt.subplots(figsize=(15,10))
     ax.grid()
-    ax.plot(hour_group.index, hour_group['sq_error'], label='MSE per hour');
-    ax.axhline(y=mse, linewidth = 2, color='red', label = 'MSE over all ' + condition + ' day predictions: {:.1f}'.format(mse))
+    ax.plot(hour_group.index, np.sqrt(hour_group['sq_error']), label='RMSE per hour');
+    ax.axhline(y=rmse, linewidth = 2, color='red', label = 'RMSE over all ' + condition + ' day predictions: {:.1f}'.format(rmse))
     ax.xaxis.set_ticks(np.arange(min(hour_group.index), max(hour_group.index)+1, 1.0))
-    ax.set_ylabel('Mean squared error', fontsize=15)
+    ax.set_ylabel('Root mean squared error', fontsize=15)
     ax.set_xlabel('Hour of the day', fontsize=15)
-    ax.set_title(pump_name + ': Change in MSE per hour on ' + condition + ' days', fontsize=18);
+    ax.set_title(pump_name + ': Change in RMSE per hour on ' + condition + ' days', fontsize=18);
     ax.tick_params(axis='both', which='major', labelsize=14);
     ax.legend(prop={'size': 14});
-    fig.savefig(pump_name + condition + " per_hour.png")
+    fig.savefig(path_viz + pump_name + condition + " per_hour.png")
     
     
-def MSEperMonth(df, pump_name, condition):
+def RMSEperMonth(df, pump_name, condition):
     
-    # overall mse
-    mse = df['sq_error'].sum() / len(df['sq_error'])
+    # overall rmse
+    rmse = np.sqrt(df['sq_error'].sum() / len(df['sq_error']))
     
     # group data by month to obtain the MSE per each month
     g = df.groupby('Month', sort=False)[['sq_error']].mean()
@@ -247,21 +264,21 @@ def MSEperMonth(df, pump_name, condition):
     fig, ax = plt.subplots(figsize=(15,10))
     ax.grid()
     ax.set_axisbelow(True)
-    ax.bar(g.index, g['sq_error']);
-    ax.axhline(y=mse, linewidth = 2, color='red', label = 'MSE over all ' + condition + ' day predictions: {:.1f}'.format(mse))
-    ax.set_ylabel('Mean squared error', fontsize=15)
+    ax.bar(g.index, np.sqrt(g['sq_error']));
+    ax.axhline(y=rmse, linewidth = 2, color='red', label = 'RMSE over all ' + condition + ' day predictions: {:.1f}'.format(rmse))
+    ax.set_ylabel('Root mean squared error', fontsize=15)
     ax.set_xlabel('Month', fontsize=15)
-    ax.set_title(pump_name + ': MSE of predictions per month on ' + condition + ' days', fontsize=18);
+    ax.set_title(pump_name + ': RMSE of predictions per month on ' + condition + ' days', fontsize=18);
     ax.legend(prop={'size': 14});
     ax.tick_params(axis='both', which='major', labelsize=14);
     plt.xticks(rotation=45);
-    fig.savefig(pump_name + condition + " per_month.png")
+    fig.savefig(path_viz + pump_name + condition + " per_month.png")
     
 
-def MSEperDay(df, pump_name, condition):
+def RMSEperDay(df, pump_name, condition):
     
     # overall mse
-    mse = df['sq_error'].sum() / len(df['sq_error'])
+    rmse = np.sqrt(df['sq_error'].sum() / len(df['sq_error']))
     
     # group data by day of the month to obtain the MSE per each day in a month
     g = df.groupby('Day')[['sq_error']].mean()
@@ -269,21 +286,21 @@ def MSEperDay(df, pump_name, condition):
     fig, ax = plt.subplots(figsize=(15,10))
     ax.grid()
     ax.set_axisbelow(True)
-    ax.plot(g.index, g['sq_error'], label='MSE per day');
-    ax.axhline(y=mse, linewidth = 2, color='red', label = 'MSE over all ' + condition + ' day predictions: {:.1f}'.format(mse))
-    ax.set_ylabel('Mean squared error', fontsize=15)
+    ax.plot(g.index, np.sqrt(g['sq_error']), label='RMSE per day');
+    ax.axhline(y=rmse, linewidth = 2, color='red', label = 'RMSE over all ' + condition + ' day predictions: {:.1f}'.format(rmse))
+    ax.set_ylabel('Root mean squared error', fontsize=15)
     ax.set_xlabel('Day of the month', fontsize=15)
-    ax.set_title(pump_name + ': MSE of predictions per day over all months on ' + condition + ' days', fontsize=18);
+    ax.set_title(pump_name + ': RMSE of predictions per day over all months on ' + condition + ' days', fontsize=18);
     ax.legend(prop={'size': 14});
     ax.tick_params(axis='both', which='major', labelsize=14);
     ax.xaxis.set_ticks(np.arange(min(g.index), max(g.index)+1, 2.0))
-    fig.savefig(pump_name + condition + " per_day.png")
+    fig.savefig(path_viz + pump_name + condition + " per_day.png")
     
 
-def MSEoverYear(df, pump_name, condition):
+def RMSEoverYear(df, pump_name, condition):
     
     # overall mse
-    mse = df['sq_error'].sum() / len(df['sq_error'])
+    rmse = np.sqrt(df['sq_error'].sum() / len(df['sq_error']))
     
     # group data by day of the year to obtain the MSE per each day in the year
     g = df.groupby('DayofYear')[['sq_error']].mean()
@@ -291,15 +308,36 @@ def MSEoverYear(df, pump_name, condition):
     fig, ax = plt.subplots(figsize=(15,10))
     ax.grid()
     ax.set_axisbelow(True)
-    ax.plot(g.index, g['sq_error'], label='MSE per day');
-    ax.axhline(y=mse, linewidth = 2, color='red', label = 'MSE over all ' + condition + ' day predictions: {:.1f}'.format(mse))
-    ax.set_ylabel('Mean squared error', fontsize=15)
+    ax.plot(g.index, np.sqrt(g['sq_error']), label='RMSE per day');
+    ax.axhline(y=rmse, linewidth = 2, color='red', label = 'MSE over all ' + condition + ' day predictions: {:.1f}'.format(rmse))
+    ax.set_ylabel('Root mean squared error', fontsize=15)
     ax.set_xlabel('Day of the year', fontsize=15)
-    ax.set_title(pump_name + ': MSE of predictions per day over a year on ' + condition + ' days', fontsize=18);
+    ax.set_title(pump_name + ': RMSE of predictions per day over a year on ' + condition + ' days', fontsize=18);
     ax.legend(prop={'size': 14});
     ax.tick_params(axis='both', which='major', labelsize=14);
     ax.xaxis.set_ticks(np.arange(min(g.index), max(g.index)+1, 50.0));
-    fig.savefig(pump_name + condition + " over_year.png")
+    
+    # adding some colour to the plot background to distinguish between months
+    ax.axvspan(1, 31, facecolor='skyblue', alpha=0.2)
+#     ax.axvspan(31, 59, facecolor='pink', alpha=0.2)
+    ax.axvspan(59, 90, facecolor='skyblue', alpha=0.2)
+#     ax.axvspan(90, 121, facecolor='pink', alpha=0.2)
+    ax.axvspan(121, 151, facecolor='skyblue', alpha=0.2)
+#     ax.axvspan(151, 182, facecolor='pink', alpha=0.2)
+    ax.axvspan(182, 213, facecolor='skyblue', alpha=0.2)
+#     ax.axvspan(213, 244, facecolor='pink', alpha=0.2)
+    ax.axvspan(244, 274, facecolor='skyblue', alpha=0.2)
+#     ax.axvspan(274, 305, facecolor='pink', alpha=0.2)
+    ax.axvspan(305, 335, facecolor='skyblue', alpha=0.2)
+#     ax.axvspan(335, 365, facecolor='pink', alpha=0.2);
+
+    anno_place = [1,31,59,90,121,151,182,213,244,274,305,335]
+    months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+              'September', 'October', 'November', 'December']
+    for i in range(12):
+        ax.annotate(months[i], (anno_place[i], 350), xytext=(10, 10), textcoords='offset points');
+    ax.margins(0);
+    fig.savefig(path_viz + pump_name + condition + " over_year.png")
 
 
 def SeasonalError(df, pump_name, condition):
@@ -331,11 +369,19 @@ def SeasonalError(df, pump_name, condition):
     ax.legend(prop={'size': 14})
     ax.set_title(pump_name + ': Root squared error over the course of an average month in a season on ' + condition + ' days', fontsize=18);
     ax.xaxis.set_ticks(np.arange(min(g.index), max(g.index)+1, 2.0));
-    fig.savefig(pump_name + condition + " per_season.png")
+    fig.savefig(path_viz + pump_name + condition + " per_season.png")
+    
+def ErrorHist(df, pump_name, condition):
+  
+    fig, ax = plt.subplots(figsize=(15,10))
+    ax.grid()
 
-
-
-
+    sns.distplot(df['error'], bins=100, color = 'darkblue');
+    
+    ax.set_xlabel('Difference between actual and predicted values', fontsize=15)
+    ax.set_title(pump_name + ': Distribution of prediction variation on ' + condition + ' days', fontsize=18);
+    ax.tick_params(axis='both', which='major', labelsize=14);
+    fig.savefig(path_viz + pump_name + condition + " error_hist.png")
 
 
 
@@ -345,8 +391,10 @@ def run_forecast_vis(station_names, path5, path6, path3,
     levels = []
     flows = []
     
-    #level_haarsteeg = hourly_conversion(path5, mean = True, need_concat = True)
-    #flow_haarsteeg = hourly_conversion(path6, mean = False, need_concat = True)
+    RMSE = []
+    
+    level_haarsteeg = hourly_conversion(path5, mean = True, need_concat = True)
+    flow_haarsteeg = hourly_conversion(path6, mean = False, need_concat = True)
     
     
     level_bokhoven = hourly_conversion(path3, mean = True, need_concat = True)
@@ -367,28 +415,38 @@ def run_forecast_vis(station_names, path5, path6, path3,
     rain_df = streets_rain(station_names, path_linkinfo, path_rain)
     hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
     
-    levels.extend([level_bokhoven, level_helftheuvelweg, level_derompert, level_oudeengelenseweg, level_maasport])
-    flows.extend([flow_bokhoven, flow_helftheuvelweg, flow_derompert, flow_oudeengelenseweg, flow_maasport])
+    levels.extend([level_haarsteeg, level_bokhoven, level_helftheuvelweg, level_derompert, level_oudeengelenseweg, level_maasport])
+    flows.extend([flow_haarsteeg, flow_bokhoven, flow_helftheuvelweg, flow_derompert, flow_oudeengelenseweg, flow_maasport])
     
     print("done storing flows and levels in run_forecast_vis function")
     
-    dfs = []
     for k, name in enumerate(station_names):
         df = bound_dates(flows[k], hourly_rain_classified[k], "datumBeginMeting", "Begin")
         df_features = feature_setup(df, levels[k], nl_holidays, name).dropna()
-        dfs.append(df_features)
+        mse_s, df = random_forest(df_features, 10)
+        RMSE.append(math.sqrt(mse_s))
+        print("Starting viz")
+        #DoAllErrorVis(df, name)
+        print("Done with "+name)
         
-    return dfs
-#        df = random_forest(df_features, 10)
-#        print("Starting viz")
-#        DoAllErrorVis(df, name)
-#        print("Done with "+name)
+    for i, d in enumerate(station_names):
+        print(d + " RMSE: " + RMSE[i])
         
-        
-dfs = run_forecast_vis(station_names, path5, path6, path3, path4, path7, path8, path9,
+run_forecast_vis(station_names, path5, path6, path3, path4, path7, path8, path9,
                  path16, path13, path14, path12, path_linkinfo, path_rain, nl_holidays)
         
-print(dfs[0].head())      
-for i, name in enumerate(station_names):
-    df = AddColumnsPred(dfs[i])
-    df.to_csv(f"../data/{name}_model_data.csv")
+#level_bokhoven = hourly_conversion(path3, mean = True, need_concat = True)
+#flow_bokhoven = hourly_conversion(path4, mean = False, need_concat = True)
+
+
+
+# =============================================================================
+# rain_df = streets_rain(station_names, path_linkinfo, path_rain)
+# hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
+# df = bound_dates(flow_bokhoven, hourly_rain_classified[1], "datumBeginMeting", "Begin")
+# df_features = feature_setup(df, level_bokhoven, nl_holidays, "Bokhoven").dropna()
+# mse_s, df = random_forest(df_features, 10)
+# # =============================================================================
+# =============================================================================
+#print("Starting viz")
+#DoAllErrorVis(df, "Bokhoven")
