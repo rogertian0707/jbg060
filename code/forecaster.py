@@ -367,10 +367,10 @@ def random_forest(features, folds):
     
 # =============================================================================
 
-# features["day"] = features["datumBeginMeting"].dt.day
-# features["hour"] = features["datumBeginMeting"].dt.hour
-# features["dayofyear"] = features["datumBeginMeting"].dt.dayofyear
-# features["dayofweek"] =  features["datumBeginMeting"].dt.dayofweek
+features["day"] = features["datumBeginMeting"].dt.day
+features["hour"] = features["datumBeginMeting"].dt.hour
+features["dayofyear"] = features["datumBeginMeting"].dt.dayofyear
+features["dayofweek"] =  features["datumBeginMeting"].dt.dayofweek
 # 
 # 
 # nl_holidays = holidays.CountryHoliday('NL')
