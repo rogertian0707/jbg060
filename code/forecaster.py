@@ -12,7 +12,7 @@ import glob
 import holidays
 #import datetime
 from sklearn.ensemble import RandomForestRegressor
-from numpy import mean
+from numpy import mean, nan
 from data_bag import streets_rain, binary_rain, hourly_conversion, bound_dates, get_levels_flows
 import random
 from math import sqrt, ceil
@@ -21,6 +21,7 @@ from sklearn.model_selection import GridSearchCV
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import itertools
 
 # PATHS
 
@@ -94,11 +95,13 @@ hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
 
 #Changed to Bokhoven, since there is another pump behind Haarsteeg at which if there is rain,
 # it will influence the flow by a lot
-level_bokhoven = hourly_conversion(path3, mean = True)
-flow_bokhoven = hourly_conversion(path4, mean = False)
+#level_bokhoven = hourly_conversion(path3, mean = True)
+#flow_bokhoven = hourly_conversion(path4, mean = False)
 
+level_haarsteeg = hourly_conversion(path5, mean = True, need_concat = True)
+flow_haarsteeg = hourly_conversion(path6, mean = False, need_concat = True)
 # Returns merged dataframe with the timestamps present in both dfs
-flow_bokhoven  = bound_dates(flow_bokhoven, hourly_rain_classified[1], "datumBeginMeting", "Begin")
+flow_haarsteeg  = bound_dates(flow_haarsteeg, hourly_rain_classified[0], "datumBeginMeting", "Begin")
 
 
 
@@ -116,11 +119,6 @@ def PlotSelectedMonth(df, pump_name, condition, month, year):
     ax.set_title(pump_name + ': Flow in ' + month + ' ' + str(year) + ' on ' + condition + ' days', fontsize=18);
     ax.tick_params(axis='both', which='major', labelsize=14);
     
-    ax2 = ax.twinx()
-    color = 'tab:red'
-    ax2.plot(df["Begin"], df['rain_hour'], color=color);
-    ax2.set_ylabel('Amount of rain per day', color=color);
-    ax2.tick_params(colors=color)
     
     if os.path.isdir("../graphs/preprocess/" + pump_name + "/") == False:
         os.mkdir("../graphs/preprocess/" + pump_name + "/")
@@ -145,7 +143,7 @@ def binary_holidays(country_holidays, dates):
     
 
 
-def feature_setup(df_flow, df_level, country_holidays, name, dummies=bool, n_pastlevel, n_pastrain):
+def feature_setup(df_flow, df_level, country_holidays, name, dummies, n_pastlevel, n_pastrain):
     """
     Function that returns the features before inputting them into a model, e.g
     
@@ -183,16 +181,17 @@ def feature_setup(df_flow, df_level, country_holidays, name, dummies=bool, n_pas
     features["flow"] = flow
     features["month"] = dates.dt.month.astype(str)
     features["year"] = dates.dt.year.astype(str)
-    features['month_name'] = dates.dt.month_name()
+    
+    #features['month_name'] = dates.dt.month_name()
     features["Begin"] = dates
     
     # Adding a feature for each level lag.
     for i in level_lags:     
-        features["level_lag_" + i] = level.shift(i)
+        features["level_lag_" + str(i)] = level.shift(i)
         
     # Adding a feature for each rain lag.
     for i in rain_lags:
-        features["rain_lag_" + i] = rain.shift(i)
+        features["rain_lag_" + str(i)] = rain.shift(i)
     
     # Add feature of amount of rain some timestamps before or during this hour (5 minute stamps)
     features["rain_hour"] = rain
@@ -216,17 +215,20 @@ def feature_setup(df_flow, df_level, country_holidays, name, dummies=bool, n_pas
                                                         "day_ofthe_week",
                                                         "holiday",
                                                         "month"])
+    
+    #Removing March inconsistencies
+    if name == "Bokhoven" or name == "Haarsteeg":
+        start_remove = pd.to_datetime('2018-03-15')
+        end_remove = pd.to_datetime('2018-03-28')
+        features = features[(features["Begin"] < start_remove) | (features["Begin"] > end_remove)]
+    
+    dates = features["Begin"]
+    features = features.drop(["Begin"], axis=1)
+    return features.dropna(), dates
 
+# To use for prediction
+df_features, dates = feature_setup(flow_haarsteeg, level_haarsteeg, nl_holidays, "Haarsteeg", True, 15, 15)
 
-    return features
-
-## check which ones are missing from .dropna()
-#df_features = feature_setup(flow_bokhoven, level_bokhoven, nl_holidays).dropna()
-
-
-def mse(d):
-    """Mean Squared Error"""
-    return mean(d * d) 
 
 def evaluate(model, predictions, test_labels):
     #predictions = model.predict(test_features)
@@ -327,13 +329,27 @@ def param_tuning_GS(features, base_accuracy):
     
     print('Improvement of {:0.2f}%.'.format(100 * (grid_accuracy - base_accuracy) / base_accuracy))
    
+def mse(d):
+    """Mean Squared Error"""
+    return mean(d * d) 
+
+def mae(d):
+    """Mean Absolute error"""
+    return abs(d)
 
 def random_forest(features, folds):
     """
     Random Forest algorithm (the model below could easily be replaced)
     with k-fold manually implemented stratified CV in order to balance out
     and have proportional number of dry and wet days in each partition
+    
+    
+    Check if predicting dry separately is better (without including it anywhere).
+    
+    Check how many lags of measurements to include in model.
+    
     """
+    
     
     
     ### CV
@@ -385,9 +401,11 @@ def random_forest(features, folds):
     # Storing all MSEs
     all_folds_mse = []
     
-    # Initializing empty column to lay the predictions back after the k-fold
+    # Initializing empty column to lay the predictions back after the k-fold as well as a list to store importances in
     features_copy = features.copy()
     features_copy["predictions"] = 0
+    
+    list_importances = [0 for i in range(len(features.columns)-2)]
             
     for i in range(0, folds):
         df_train = features.loc[train_folds[i],:]
@@ -404,7 +422,7 @@ def random_forest(features, folds):
                                        min_samples_leaf = 1,
                                        max_features = "sqrt", max_depth = 100, bootstrap = True)
         rf.fit(train_X, train_Y)
-        #NEED to add a more elaborate evaluate function here
+       
         test_predictions = rf.predict(test_X)
         error = test_Y - test_predictions
         mse_k = mse(error)
@@ -413,86 +431,126 @@ def random_forest(features, folds):
         
         evaluate(rf, test_predictions, test_Y)
         
-        #Store feature importances to see the most important features with rf.feature_importances_
         
         # Adding predictions back to the features
         features_copy.loc[test_folds[i], "predictions"] = test_predictions
         
+        # Getting the feature importances
+        
+        for i, k in enumerate(rf.feature_importances_):
+            list_importances[i] += k
+            
+            
+    for i, k in enumerate(list_importances):
+        list_importances[i] = k/10
+        
+        
     #Feature importance for one fold
-    for i, k in zip(df_train.drop(["flow", "dates"], axis = 1).columns, rf.feature_importances_):
+    for i, k in zip(df_train.drop(["flow", "dates"], axis = 1).columns, list_importances):
         print("Feature: {} ; Importance: {}".format(i, k))
         
-    return features_copy.to_csv("predictions.csv")
+    print(rmse)
+    return features_copy, sqrt(mean(all_folds_mse)), features_copy["predictions"] #features_copy.to_csv("predictions.csv")
+
+# =============================================================================
+# def lambda_instr(hour, weekday, date, h_w_df):
+#     prediction_df = h_w_df.loc[(h_w_df["Begin"].dt.weekday == weekday) & (h_w_df["Begin"].dt.hour == hour)]
+#     prediction_df = prediction_df[prediction_df["date"]==date]
+#     try:
+#         prediction = prediction_df["predictions"][0]
+#     except:
+#         prediction = "kvo???"
+#     
+#     return prediction
+# =============================================================================
+    
+
+def naive_dry(features_df, last_n, dates):
+    """
+    Naive prediction function for dry days we would like to beat.
+    
+    last_n: parameter indicating how many previous measurements to include
+            in averaging the prediction. E.g., if last_n = 3, 
+            therefore the prediction for Tuesday 10 am is based
+            on 3 previous Tuesdays 10 am.
+    """
+    df_n = features_df[features_df['rain_N_ago'] == 0]
+    df_n["Begin"] = dates
+    df = df_n[["Begin", "flow"]]
+    hours = [i for i in range(24)]
+    weekdays = [i for i in range(7)]
+    
+    #Getting all of the combinations of hour and day of week.
+    permutations = list(itertools.product(weekdays, hours))
+    
+    #Grouping by hour and day of week.
+    df_grouped = df.groupby([df["Begin"].dt.weekday, df["Begin"].dt.hour])
+    
+    #Dataframe to store the final result in.
+    df_1 = pd.DataFrame()
+    
+    for p in permutations:
         
+        #Getting all the flows with that hour and day
+        group = df_grouped.get_group(p)
+        
+        #List to store the predictions in
+        predictions = []
+        i = 0
+        n_lim = last_n
+        test_list = list(group["flow"])
+        while i<len(test_list):
+            if i<n_lim:
+                predictions.append(mean(test_list[1:i]))
+            if i>=n_lim:
+                predictions.append(mean(test_list[i-n_lim:i]))
+            i=i+1
+
+        
+        group["predictions"] = predictions
+        
+        df_1 = df_1.append(group, ignore_index = True)
+        
+        #Dropping observations which cannot be predicted (Because you can't get a prediction
+        #of the first row in each permutation.)
+        df_1 = df_1.dropna()
+        
+    error = df_1["flow"] - df_1["predictions"]
+    mse_k = mse(error)
+    rmse = sqrt(mse_k)
+        
+    return df_1, rmse
+
+
+
+df_naive, rmseerror_naive = naive_dry(df_features, 4, dates)
     
-#df = random_forest(df_features, 10)
+df, rmserror, predictions = random_forest(df_features, 10)
 
-levels, flows = get_levels_flows()
-
-
-months18 = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
-            'September', 'October', 'November', 'December']
+print("Naive rmse: " + str(rmseerror_naive))
+#Here need to differentiate between dry and ewt predictions
+print("Actual rmse: " + str(rmserror))
 
 
+#To be pickled (without hot-encoding)
+#df_features1, dates = feature_setup(flow_haarsteeg, level_haarsteeg, nl_holidays, "Haarsteeg", False, 15, 15)
+#df_features1["predictions"] = predictions
+#df_features1["Begin"] = dates
+#df_features1.to_pickle("features&predictions_haarsteeg.pkl")
 
-for month in months18:
-    for i, name in enumerate(station_names):
-        station_data = bound_dates(flows[i], hourly_rain_classified[i], "datumBeginMeting", "Begin")
-        station_data = feature_setup(station_data, levels[i], nl_holidays, name, dummies=False)
-        PlotSelectedMonth(station_data, name, (str(i)+"all"),month , 2018)
+#levels, flows = get_levels_flows()
+
+#months18 = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+#            'September', 'October', 'November', 'December']
+
+
+
+# =============================================================================
+# for month in months18:
+#     for i, name in enumerate(station_names):
+#         station_data = bound_dates(flows[i], hourly_rain_classified[i], "datumBeginMeting", "Begin")
+#         station_data = feature_setup(station_data, levels[i], nl_holidays, name, dummies=False, n_pastlevel = 2, n_pastrain = 2)
+#         PlotSelectedMonth(station_data, name, (str(i)+"all"),month , 2018)
+# =============================================================================
     
-# =============================================================================
 
-# features["day"] = features["datumBeginMeting"].dt.day
-# features["hour"] = features["datumBeginMeting"].dt.hour
-# features["dayofyear"] = features["datumBeginMeting"].dt.dayofyear
-# features["dayofweek"] =  features["datumBeginMeting"].dt.dayofweek
-# 
-# 
-# nl_holidays = holidays.CountryHoliday('NL')
-# 
-# holiday = []
-# for i in features["datumBeginMeting"]:
-#     if i in nl_holidays:
-#         holiday.append(1)
-#     else:
-#         holiday.append(0)
-# 
-# features["holiday"] = holiday
-# 
-# features["level"] = level_haarsteeg["hstWaarde"]
-#             
-# train1 = features[(features["datumBeginMeting"] >= min(features["datumBeginMeting"])) &
-#                  (features["datumBeginMeting"] <= pd.Timestamp(2019, 1, 1))]
-# train = train1[["hour", "day","dayofweek", "level"]]
-# test1 = features[features["datumBeginMeting"] > pd.Timestamp(2019, 1, 1)]
-# test = test1[["hour", "day","dayofweek", "level"]]
-# 
-# 
-# =============================================================================
-
-
-# =============================================================================
-# def test_train(features, dry = bool):
-#     """
-#     Spits out test and training data;
-#     """
-#     if dry == True:
-#         features = features[df_features['rain_N_ago'] == 0]
-#     else: 
-#         features = features[df_features['rain_N_ago'] == 1]
-#     
-#     all_days = set(features["dates"].dt.date)
-#     test_days = random.sample(all_days, 60)
-#     training_days = [x for x in all_days if x not in test_days]
-#     
-#     training = features[features["dates"].dt.date.isin(training_days)]
-#     training_X = training.drop(columns = ["flow", "dates"])
-#     training_Y = training["flow"]
-#     
-#     testing = features[features["dates"].dt.date.isin(test_days)]
-#     testing_X = testing.drop(columns = ["flow", "dates"])
-#     testing_Y = testing["flow"]
-#     
-#     return training_X, training_Y, testing_X, testing_Y
-# =============================================================================
