@@ -82,7 +82,9 @@ def path_bag(flow, level, station_names):
 
 
 def streets_rain(station_names, path_linkinfo, path_rain):
-    
+    """
+    Function to link the station streets to the rain on those streets.
+    """
     link = pd.read_csv(path_linkinfo+
                    "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.csv",
                    header = 9)
@@ -168,7 +170,9 @@ def last_n_cumsum(n, name, df):
     return B
 
 def binary_rain(station_names, df, n):
-    
+    """
+    Labeling the hours as "dry" and "wet" hours.
+    """
     binary_rain_df = []
     df = df.sort_values(by="Begin")
     df = df.set_index("Begin", drop = False).resample("60Min").sum()
