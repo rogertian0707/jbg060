@@ -90,8 +90,20 @@ hourly_rain_classified = binary_rain(station_names, rain_df, n=15)
 
 #Changed to Bokhoven, since there is another pump behind Haarsteeg at which if there is rain,
 # it will influence the flow by a lot
+<<<<<<< Updated upstream
 level_bokhoven = hourly_conversion(path3, mean = True, need_concat=True)
 flow_bokhoven = hourly_conversion(path4, mean = False, need_concat=True)
+=======
+#level_bokhoven = hourly_conversion(path3, mean = True)
+#flow_bokhoven = hourly_conversion(path4, mean = False)
+
+level_haarsteeg = hourly_conversion(path3, mean = True, need_concat = True)
+flow_haarsteeg = hourly_conversion(path4, mean = False, need_concat = True)
+# Returns merged dataframe with the timestamps present in both dfs
+flow_haarsteeg  = bound_dates(flow_haarsteeg, hourly_rain_classified[0], "datumBeginMeting", "Begin")
+
+
+>>>>>>> Stashed changes
 
 #level_haarsteg = hourly_conversion(path5, mean = True, need_concat=True)
 #flow_haarsteeg = hourly_conversion(path6, mean = False, need_concat=True)

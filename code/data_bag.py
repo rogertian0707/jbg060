@@ -82,7 +82,13 @@ def path_bag(flow, level, station_names):
 
 
 def streets_rain(station_names, path_linkinfo, path_rain):
+<<<<<<< Updated upstream
     
+=======
+    """
+    Function to link the station streets to the rain on those streets.
+    """
+>>>>>>> Stashed changes
     link = pd.read_excel(path_linkinfo+
                    "/20180717_dump riodat rioleringsdeelgebieden_matched_to_rainfall_locations.xlsx",
                    header = 9)
