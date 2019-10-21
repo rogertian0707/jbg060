@@ -337,7 +337,7 @@ def mae(d):
     """Mean Absolute error"""
     return abs(d)
 
-def random_forest(features, folds):
+def random_forest(features, folds, separate = False):
     """
     Random Forest algorithm (the model below could easily be replaced)
     with k-fold manually implemented stratified CV in order to balance out
@@ -350,107 +350,225 @@ def random_forest(features, folds):
     
     """
     
+    if separate == False:
     
+        ### CV
+        dry_indexes = list(features[features['rain_N_ago'] == 0].index)
+        wet_indexes = list(features[features['rain_N_ago'] == 1].index)
+        
+        dry_n = len(dry_indexes)
+        wet_n = len(wet_indexes)
+        
+        #Instruments from which 
+        instr_dry = dry_indexes.copy()
+        instr_wet = wet_indexes.copy()
+        
+        train_folds = []
+        test_folds = []
+        
+        for i in range(0, folds):
+            
+            #if statements for the lengths at the last folds
+            if len(instr_dry) < (dry_n/folds) or len(instr_wet) < (wet_n/folds):
+                fold_i_test_dry = instr_dry
+                fold_i_test_wet = instr_wet
+                
+                fold_i_test_dry.extend(fold_i_test_wet)
+                test_folds.append(fold_i_test_dry)
+                
+                fold_i_train_dry = list(set(dry_indexes) - set(fold_i_test_dry))
+                fold_i_train_wet = list(set(wet_indexes) - set(fold_i_test_wet))
+                
+                fold_i_train_dry.extend(fold_i_train_wet)
+                train_folds.append(fold_i_train_dry)
+                
+            else:
+                fold_i_test_dry = random.sample(instr_dry, ceil(dry_n/folds))
+                instr_dry = list(set(instr_dry) - set(fold_i_test_dry))
+                
+                fold_i_test_wet = random.sample(instr_wet, ceil(wet_n/folds))
+                instr_wet = list(set(instr_wet) - set(fold_i_test_wet))
+                
+                fold_i_test_dry.extend(fold_i_test_wet)
+                test_folds.append(fold_i_test_dry)
+                
+                fold_i_train_dry = list(set(dry_indexes) - set(fold_i_test_dry))
+                fold_i_train_wet = list(set(wet_indexes) - set(fold_i_test_wet))
+                
+                fold_i_train_dry.extend(fold_i_train_wet)
+                train_folds.append(fold_i_train_dry)
+        
+        # Storing all MSEs
+        all_folds_mse = []
+        
+        # Initializing empty column to lay the predictions back after the k-fold as well as a list to store importances in
+        features_copy = features.copy()
+        features_copy["predictions"] = 0
+        
+        list_importances = [0 for i in range(len(features.columns)-2)]
+                
+        for i in range(0, folds):
+            df_train = features.loc[train_folds[i],:]
+            df_test = features.loc[test_folds[i],:]
+                
+            train_Y = np.array(df_train["flow"])
+            train_X = np.array(df_train.drop(["flow", "dates"], axis=1))
+                
+            test_Y = np.array(df_test["flow"])
+            test_X = np.array(df_test.drop(["flow", "dates"], axis =1))
+                
+            # Here add the best parameters from RandomSearch and GridSearch
+            rf = RandomForestRegressor(n_estimators = 400, min_samples_split=5,
+                                           min_samples_leaf = 1,
+                                           max_features = "sqrt", max_depth = 100, bootstrap = True)
+            rf.fit(train_X, train_Y)
+           
+            test_predictions = rf.predict(test_X)
+            error = test_Y - test_predictions
+            mse_k = mse(error)
+            rmse = sqrt(mse_k)
+            all_folds_mse.append(mse_k)
+            
+            evaluate(rf, test_predictions, test_Y)
+            
+            
+            # Adding predictions back to the features
+            features_copy.loc[test_folds[i], "predictions"] = test_predictions
+            
+            # Getting the feature importances
+            
+            for i, k in enumerate(rf.feature_importances_):
+                list_importances[i] += k
+                
+                
+        for i, k in enumerate(list_importances):
+            list_importances[i] = k/10
+            
+            
+        #Feature importance for one fold
+        for i, k in zip(df_train.drop(["flow", "dates"], axis = 1).columns, list_importances):
+            print("Feature: {} ; Importance: {}".format(i, k))
+            
+        no_rain_df = features_copy[features_copy["rain_N_ago"]==0] 
+        with_rain_df = features_copy[features_copy["rain_N_ago"]==1] 
+        
+        errors_no_rain = no_rain_df["flow"] - no_rain_df["rain_N_ago"]
+        errors_with_rain = with_rain_df["flow"] - with_rain_df["rain_N_ago"]
+        all_folds_mse_dry = mse(errors_no_rain)
+        all_folds_mse_wet = mse(errors_with_rain)
     
-    ### CV
-    dry_indexes = list(features[features['rain_N_ago'] == 0].index)
-    wet_indexes = list(features[features['rain_N_ago'] == 1].index)
-    
-    dry_n = len(dry_indexes)
-    wet_n = len(wet_indexes)
-    
-    #Instruments from which 
-    instr_dry = dry_indexes.copy()
-    instr_wet = wet_indexes.copy()
-    
-    train_folds = []
-    test_folds = []
-    
-    for i in range(0, folds):
         
-        #if statements for the lengths at the last folds
-        if len(instr_dry) < (dry_n/folds) or len(instr_wet) < (wet_n/folds):
-            fold_i_test_dry = instr_dry
-            fold_i_test_wet = instr_wet
-            
-            fold_i_test_dry.extend(fold_i_test_wet)
-            test_folds.append(fold_i_test_dry)
-            
-            fold_i_train_dry = list(set(dry_indexes) - set(fold_i_test_dry))
-            fold_i_train_wet = list(set(wet_indexes) - set(fold_i_test_wet))
-            
-            fold_i_train_dry.extend(fold_i_train_wet)
-            train_folds.append(fold_i_train_dry)
-            
-        else:
-            fold_i_test_dry = random.sample(instr_dry, ceil(dry_n/folds))
-            instr_dry = list(set(instr_dry) - set(fold_i_test_dry))
-            
-            fold_i_test_wet = random.sample(instr_wet, ceil(wet_n/folds))
-            instr_wet = list(set(instr_wet) - set(fold_i_test_wet))
-            
-            fold_i_test_dry.extend(fold_i_test_wet)
-            test_folds.append(fold_i_test_dry)
-            
-            fold_i_train_dry = list(set(dry_indexes) - set(fold_i_test_dry))
-            fold_i_train_wet = list(set(wet_indexes) - set(fold_i_test_wet))
-            
-            fold_i_train_dry.extend(fold_i_train_wet)
-            train_folds.append(fold_i_train_dry)
-    
-    # Storing all MSEs
-    all_folds_mse = []
-    
-    # Initializing empty column to lay the predictions back after the k-fold as well as a list to store importances in
-    features_copy = features.copy()
-    features_copy["predictions"] = 0
-    
-    list_importances = [0 for i in range(len(features.columns)-2)]
-            
-    for i in range(0, folds):
-        df_train = features.loc[train_folds[i],:]
-        df_test = features.loc[test_folds[i],:]
-            
-        train_Y = np.array(df_train["flow"])
-        train_X = np.array(df_train.drop(["flow", "dates"], axis=1))
-            
-        test_Y = np.array(df_test["flow"])
-        test_X = np.array(df_test.drop(["flow", "dates"], axis =1))
-            
-        # Here add the best parameters from RandomSearch and GridSearch
-        rf = RandomForestRegressor(n_estimators = 400, min_samples_split=5,
-                                       min_samples_leaf = 1,
-                                       max_features = "sqrt", max_depth = 100, bootstrap = True)
-        rf.fit(train_X, train_Y)
-       
-        test_predictions = rf.predict(test_X)
-        error = test_Y - test_predictions
-        mse_k = mse(error)
-        rmse = sqrt(mse_k)
-        all_folds_mse.append(mse_k)
+    if separate == True:
+        #dry_data = features[features['rain_N_ago'] == 0]
+        #wet_data = features[features['rain_N_ago'] == 1]
         
-        evaluate(rf, test_predictions, test_Y)
+        dry_indexes = list(features[features['rain_N_ago'] == 0].index)
+        wet_indexes = list(features[features['rain_N_ago'] == 1].index)
         
+        dry_n = len(dry_indexes)
+        wet_n = len(wet_indexes)
         
-        # Adding predictions back to the features
-        features_copy.loc[test_folds[i], "predictions"] = test_predictions
+        #Instruments from which 
+        instr_dry = dry_indexes.copy()
+        instr_wet = wet_indexes.copy()
         
-        # Getting the feature importances
+        train_folds_dry = []
+        test_folds_dry = []
         
-        for i, k in enumerate(rf.feature_importances_):
-            list_importances[i] += k
+        train_folds_wet = []
+        test_folds_wet = []
+        
+        for i in range(0, folds):
+            
+            #if statements for the lengths at the last folds
+            if len(instr_dry) < (dry_n/folds):
+                fold_i_test_dry = instr_dry
+                test_folds_dry.append(fold_i_test_dry)
+                fold_i_train_dry = list(set(dry_indexes) - set(fold_i_test_dry))
+                train_folds_dry.append(fold_i_train_dry)
+                
+            else:
+                fold_i_test_dry = random.sample(instr_dry, ceil(dry_n/folds))
+                instr_dry = list(set(instr_dry) - set(fold_i_test_dry))
+                test_folds_dry.append(fold_i_test_dry)
+                fold_i_train_dry = list(set(dry_indexes) - set(fold_i_test_dry))
+                train_folds_dry.append(fold_i_train_dry)
+                
+        for i in range(0, folds):
+            
+            #if statements for the lengths at the last folds
+            if len(instr_wet) < (wet_n/folds):
+                fold_i_test_wet = instr_wet
+                test_folds_wet.append(fold_i_test_wet)
+                fold_i_train_wet = list(set(wet_indexes) - set(fold_i_test_wet))
+                train_folds_wet.append(fold_i_train_wet)
+                
+            else:
+                fold_i_test_wet = random.sample(instr_wet, ceil(wet_n/folds))
+                instr_wet = list(set(instr_wet) - set(fold_i_test_wet))
+                test_folds_wet.append(fold_i_test_wet)
+                fold_i_train_wet = list(set(wet_indexes) - set(fold_i_test_wet))
+                train_folds_wet.append(fold_i_train_wet)
+                
+                
+        all_folds_mse_dry = []
+        all_folds_mse_wet = []
+        
+        features_copy = features.copy()
+        features_copy["predictions"] = 0
+        for i in range(0, folds):
+            df_train_dry = features.loc[train_folds_dry[i],:]
+            df_test_dry = features.loc[test_folds_dry[i],:]
+            
+            df_train_wet = features.loc[train_folds_wet[i],:]
+            df_test_wet = features.loc[test_folds_wet[i],:]
+                
+            train_Y_dry = np.array(df_train_dry["flow"])
+            train_X_dry = np.array(df_train_dry.drop(["flow", "dates"], axis=1))
+            
+            train_Y_wet = np.array(df_train_wet["flow"])
+            train_X_wet = np.array(df_train_wet.drop(["flow", "dates"], axis=1))
+                
+            test_Y_dry = np.array(df_test_dry["flow"])
+            test_X_dry = np.array(df_test_dry.drop(["flow", "dates"], axis =1))
+            
+            test_Y_wet = np.array(df_test_wet["flow"])
+            test_X_wet = np.array(df_test_wet.drop(["flow", "dates"], axis =1))
+                
+            # Here add the best parameters from RandomSearch and GridSearch
+            rf_dry = RandomForestRegressor(n_estimators = 400, min_samples_split=5,
+                                           min_samples_leaf = 1,
+                                           max_features = "sqrt", max_depth = 100, bootstrap = True)
+            
+            rf_wet = RandomForestRegressor(n_estimators = 400, min_samples_split=5,
+                                           min_samples_leaf = 1,
+                                           max_features = "sqrt", max_depth = 100, bootstrap = True)
+            rf_dry.fit(train_X_dry, train_Y_dry)
+            rf_wet.fit(train_X_wet, train_Y_wet)
+           
+            test_predictions_dry = rf_dry.predict(test_X_dry)
+            test_predictions_wet = rf_wet.predict(test_X_wet)
+            
+            error_dry = test_Y_dry - test_predictions_dry
+            error_wet = test_Y_wet - test_predictions_wet
+            
+            mse_k_dry = mse(error_dry)
+            mse_k_wet = mse(error_wet)
+            
+            rmse_dry = sqrt(mse_k_dry)
+            rmse_wet = sqrt(mse_k_wet)
+            
+            all_folds_mse_dry.append(mse_k_dry)
+            all_folds_mse_wet.append(mse_k_wet)
+            
+            #evaluate(rf, test_predictions, test_Y)
             
             
-    for i, k in enumerate(list_importances):
-        list_importances[i] = k/10
+            # Adding predictions back to the features
+            features_copy.loc[test_folds_dry[i], "predictions"] = test_predictions_dry
+            features_copy.loc[test_folds_wet[i], "predictions"] = test_predictions_wet
         
-        
-    #Feature importance for one fold
-    for i, k in zip(df_train.drop(["flow", "dates"], axis = 1).columns, list_importances):
-        print("Feature: {} ; Importance: {}".format(i, k))
-        
-    print(rmse)
-    return features_copy, sqrt(mean(all_folds_mse)), features_copy["predictions"] #features_copy.to_csv("predictions.csv")
+    return features_copy, sqrt(mean(all_folds_mse_dry)), sqrt(mean(all_folds_mse_wet)), features_copy["predictions"] #features_copy.to_csv("predictions.csv")
 
 # =============================================================================
 # def lambda_instr(hour, weekday, date, h_w_df):
@@ -523,15 +641,25 @@ def naive_dry(features_df, last_n, dates):
 
 
 
-df_naive, rmseerror_naive = naive_dry(df_features, 4, dates)
+#df_naive, rmseerror_naive = naive_dry(df_features, 4, dates)
     
-df, rmserror, predictions = random_forest(df_features, 10)
+#df, rmserror, predictions = random_forest(df_features, 10)
 
-print("Naive rmse: " + str(rmseerror_naive))
+#print("Naive rmse: " + str(rmseerror_naive))
 #Here need to differentiate between dry and ewt predictions
-print("Actual rmse: " + str(rmserror))
+#print("Actual rmse: " + str(rmserror))
 
 
+
+#Comapring separating and not separating dry and wet predictions
+df, rmserror_dry, rmserror_wet, predictions = random_forest(df_features, 10, separate = False)
+print("dry Error together: " + str(rmserror_dry))
+print("wet Error together: " + str(rmserror_wet))
+
+
+df, rmserror_dry, rmserror_wet, predictions = random_forest(df_features, 10, separate = True)
+print("dry Error separate: " + str(rmserror_dry))
+print("wet Error separate: " + str(rmserror_wet))
 #To be pickled (without hot-encoding)
 #df_features1, dates = feature_setup(flow_haarsteeg, level_haarsteeg, nl_holidays, "Haarsteeg", False, 15, 15)
 #df_features1["predictions"] = predictions
